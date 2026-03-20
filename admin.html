@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUG HUNT &mdash; Admin Panel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e17;--surface:#131a2b;--surface2:#1a2340;--surface3:#1e2a4a;
+  --accent:#00e5ff;--accent2:#7c4dff;--green:#00e676;--red:#ff1744;--orange:#ff9100;--yellow:#ffd600;
+  --text:#e0e6f0;--text-dim:#6b7a99;--code-bg:#0d1117;--radius:12px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.container{max-width:1200px;margin:0 auto;padding:24px}
+
+/* ── Login ── */
+.admin-login{max-width:400px;margin:12vh auto;text-align:center}
+.admin-login h1{font-size:1.6rem;font-weight:800;letter-spacing:3px;margin-bottom:6px;color:var(--accent)}
+.admin-login p{color:var(--text-dim);font-size:.9rem;margin-bottom:28px}
+.admin-card{background:var(--surface);border-radius:var(--radius);padding:32px;border:1px solid rgba(255,255,255,.06)}
+.form-group{margin-bottom:16px;text-align:left}
+.form-group label{display:block;font-size:.75rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.form-input{width:100%;padding:12px 16px;border-radius:10px;border:2px solid var(--surface2);background:var(--surface2);color:var(--text);font-size:.95rem;font-family:inherit;transition:all .2s;outline:none}
+.form-input:focus{border-color:var(--accent);background:rgba(0,229,255,.04)}
+.btn{display:inline-block;padding:12px 36px;font-size:1rem;font-weight:700;border:none;border-radius:var(--radius);cursor:pointer;transition:all .25s;letter-spacing:1px;text-transform:uppercase}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 24px rgba(0,229,255,.25);width:100%}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,229,255,.35)}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-sm{padding:8px 20px;font-size:.82rem;border-radius:8px;font-weight:600;border:none;cursor:pointer;transition:all .2s}
+.btn-ghost{background:var(--surface2);color:var(--text)}
+.btn-ghost:hover{background:var(--surface3)}
+.btn-accent{background:var(--accent);color:#000}
+.btn-accent:hover{opacity:.85}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{opacity:.85}
+.error-msg{color:var(--red);font-size:.85rem;margin-top:12px;min-height:20px}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Header ── */
+.admin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.admin-header h1{font-size:1.3rem;font-weight:800;letter-spacing:3px;display:flex;align-items:center;gap:10px}
+.admin-header h1 span{font-size:.7rem;color:var(--accent);background:rgba(0,229,255,.1);padding:3px 10px;border-radius:6px;font-weight:600}
+.header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.admin-user{color:var(--text-dim);font-size:.85rem}
+
+/* ── Tabs ── */
+.admin-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+.admin-tab{flex:1;padding:14px;font-size:.85rem;font-weight:600;cursor:pointer;background:var(--surface);color:var(--text-dim);border:none;transition:all .2s;text-transform:uppercase;letter-spacing:1px;text-align:center}
+.admin-tab.active{background:rgba(0,229,255,.1);color:var(--accent)}
+.admin-tab:hover{color:var(--text)}
+.tab-pane{display:none;animation:fadeIn .3s ease}
+.tab-pane.active{display:block}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:20px;border:1px solid rgba(255,255,255,.05);text-align:center}
+.stat-val{font-size:2rem;font-weight:900;margin-bottom:2px}
+.stat-label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.stat-card:nth-child(1) .stat-val{color:var(--accent)}
+.stat-card:nth-child(2) .stat-val{color:var(--green)}
+.stat-card:nth-child(3) .stat-val{color:var(--yellow)}
+.stat-card:nth-child(4) .stat-val{color:var(--orange)}
+.stat-card:nth-child(5) .stat-val{color:var(--accent2)}
+
+/* ── Search ── */
+.search-bar{margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap}
+.search-bar input{flex:1;min-width:200px;padding:10px 16px;border-radius:10px;border:2px solid var(--surface2);background:var(--surface);color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s}
+.search-bar input:focus{border-color:var(--accent)}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid rgba(255,255,255,.05)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+thead{background:var(--surface)}
+th{padding:14px 16px;text-align:left;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);cursor:pointer;white-space:nowrap;user-select:none}
+th:hover{color:var(--accent)}
+th .sort-arrow{margin-left:4px;opacity:.4}
+th.sorted .sort-arrow{opacity:1;color:var(--accent)}
+td{padding:12px 16px;border-top:1px solid rgba(255,255,255,.04)}
+tr{transition:background .15s}
+tr:hover td{background:rgba(0,229,255,.03)}
+tr.clickable{cursor:pointer}
+.rank-cell{font-weight:800;color:var(--accent);width:50px}
+.rank-1{color:var(--yellow)}
+.rank-2{color:#c0c0c0}
+.rank-3{color:#cd7f32}
+.score-cell{font-weight:800;font-family:'Consolas',monospace;font-size:.95rem}
+.diff-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;text-transform:uppercase}
+.diff-badge.easy{background:rgba(0,230,118,.12);color:var(--green)}
+.diff-badge.med{background:rgba(255,145,0,.12);color:var(--orange)}
+.diff-badge.hard{background:rgba(255,23,68,.12);color:var(--red)}
+.lang-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;background:rgba(124,77,255,.12);color:var(--accent2);font-family:'Consolas',monospace}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty-state h3{font-size:1.1rem;margin-bottom:8px;color:var(--text)}
+
+/* ── Detail Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;overflow-y:auto;padding:24px}
+.modal-overlay.active{display:flex;justify-content:center;align-items:flex-start}
+.modal{background:var(--surface);border-radius:var(--radius);padding:32px;max-width:700px;width:100%;border:1px solid rgba(255,255,255,.08);animation:fadeIn .25s ease;margin:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-header h2{font-size:1.1rem;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text-dim);font-size:1.5rem;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:all .2s}
+.modal-close:hover{background:var(--surface2);color:var(--text)}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.detail-item{background:var(--surface2);padding:14px;border-radius:10px}
+.detail-item .di-label{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.detail-item .di-val{font-size:1.1rem;font-weight:700}
+.answer-list{max-height:400px;overflow-y:auto}
+.answer-row{display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:.85rem}
+.answer-row.correct{background:rgba(0,230,118,.06)}
+.answer-row.wrong{background:rgba(255,23,68,.06)}
+.answer-row .aq-num{font-weight:700;min-width:36px;color:var(--text-dim)}
+.answer-row .aq-status{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0}
+.answer-row.correct .aq-status{background:var(--green);color:#000}
+.answer-row.wrong .aq-status{background:var(--red);color:#fff}
+.answer-row .aq-text{flex:1;color:var(--text-dim)}
+
+/* ── Code Management ── */
+.code-gen{background:var(--surface);border-radius:var(--radius);padding:24px;border:1px solid rgba(255,255,255,.05);margin-bottom:24px}
+.code-gen h3{font-size:.9rem;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
+.code-gen-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
+.code-gen-row .form-group{margin-bottom:0}
+.codes-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.code-chip{
+  padding:8px 14px;border-radius:8px;font-family:'Consolas',monospace;
+  font-size:.85rem;font-weight:700;letter-spacing:2px;
+  background:var(--surface2);color:var(--text);border:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:center;gap:8px;
+}
+.code-chip.used{opacity:.5;text-decoration:line-through}
+.code-chip .code-status{width:8px;height:8px;border-radius:50%}
+.code-chip .code-status.available{background:var(--green)}
+.code-chip .code-status.claimed{background:var(--red)}
+
+.code-table-wrap{margin-top:16px}
+
+@media(max-width:768px){
+  .container{padding:12px}
+  .detail-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .modal{padding:20px}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="admin-login" id="admin-login">
+  <h1>BUG HUNT</h1>
+  <p>Admin Panel &mdash; Enter admin credentials</p>
+  <div class="admin-card">
+    <div class="form-group"><label>Admin ID</label><input class="form-input" type="text" id="adm-id" placeholder="admin" autocomplete="username"></div>
+    <div class="form-group"><label>Admin Passkey</label><input class="form-input" type="password" id="adm-pass" placeholder="Passkey" autocomplete="current-password"></div>
+    <button class="btn btn-primary" id="adm-login-btn" style="margin-top:8px">Sign In</button>
+    <div class="error-msg" id="adm-error"></div>
+    <p style="color:var(--text-dim);font-size:.72rem;margin-top:12px;text-align:center">First time? Set your Admin ID and Passkey below then click Register.</p>
+    <button class="btn btn-primary" id="adm-register-btn" style="margin-top:8px;background:var(--surface2);box-shadow:none">Register Admin</button>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="container" id="dashboard" style="display:none">
+  <div class="admin-header">
+    <h1>BUG HUNT <span>ADMIN</span></h1>
+    <div class="header-actions">
+      <span class="admin-user" id="adm-user-name"></span>
+      <button class="btn-sm btn-ghost" id="adm-refresh" title="Refresh data">Refresh</button>
+      <button class="btn-sm btn-ghost" id="adm-export">Export CSV</button>
+      <button class="btn-sm btn-danger" id="adm-logout">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-val" id="s-total">0</div><div class="stat-label">Participants</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-avg">0</div><div class="stat-label">Avg Score</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-top">0</div><div class="stat-label">Top Score</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-avgtime">0:00</div><div class="stat-label">Avg Time</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-codes">0</div><div class="stat-label">Codes Used</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="leaderboard">Leaderboard</button>
+    <button class="admin-tab" data-tab="codes">Event Codes</button>
+  </div>
+
+  <!-- Leaderboard Tab -->
+  <div class="tab-pane active" id="pane-leaderboard">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by name, roll number, or language...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th data-sort="rank"># <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="full_name">Name <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="roll_number">Roll# <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="language">Lang <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="total_score">Score <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="accuracy_pts">Accuracy <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="time_bonus">Speed <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="total_correct">Correct <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="time_used">Time <span class="sort-arrow">&darr;</span></th>
+          <th>Details</th>
+        </tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="lb-empty" style="display:none">
+      <h3>No submissions yet</h3>
+      <p>Scores will appear here as participants complete the quiz.</p>
+    </div>
+  </div>
+
+  <!-- Codes Tab -->
+  <div class="tab-pane" id="pane-codes">
+    <div class="code-gen">
+      <h3>Generate New Codes</h3>
+      <div class="code-gen-row">
+        <div class="form-group"><label>Number of Codes</label><input class="form-input" type="number" id="gen-count" value="10" min="1" max="200" style="width:120px"></div>
+        <div class="form-group"><label>Label (optional)</label><input class="form-input" type="text" id="gen-label" placeholder="e.g. Day 1 Batch" style="width:200px"></div>
+        <button class="btn-sm btn-accent" id="gen-btn">Generate</button>
+      </div>
+      <div id="gen-result"></div>
+    </div>
+    <h3 style="font-size:.9rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:16px">All Codes</h3>
+    <div class="search-bar"><input type="text" id="code-search" placeholder="Search codes..."></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Code</th><th>Label</th><th>Status</th><th>Used By</th><th>Used At</th>
+        </tr></thead>
+        <tbody id="codes-body"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="codes-empty" style="display:none">
+      <h3>No codes generated</h3>
+      <p>Use the form above to generate event codes.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-header"><h2 id="modal-title">Participant Details</h2><button class="modal-close" id="modal-close">&times;</button></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════════════════════════════════
+   CONFIG — Same as index.html
+   ═══════════════════════════════════════ */
+const SUPABASE_URL  = 'https://cpbtcmtdlcenpieavddh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYnRjbXRkbGNlbnBpZWF2ZGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTQyMjYsImV4cCI6MjA4OTU3MDIyNn0.lRXI_hrWqla4vUMwq9xgICfboj42AZKAIlUQYm7hlts';
+
+const PTS = { easy: 10, medium: 20, hard: 30 };
+const TOTAL = 30;
+
+let sb, currentUser, userProfile;
+let leaderboardData = [];
+let codesData = [];
+let sortCol = 'rank', sortDir = 'asc';
+
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); } catch(e) { alert('Supabase init failed'); }
+
+const $ = id => document.getElementById(id);
+const fmt = s => Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');
+
+/* ═══════════════════════════════════════
+   QUESTION BANK (for answer review)
+   ═══════════════════════════════════════ */
+const QB_FLAT = [
+  "Assignment = used instead of comparison ==",
+  "Off-by-one: prints 0 to 5 instead of 0 to 4",
+  "Division by zero",
+  "Index 5 out of bounds",
+  "Infinite loop \u2014 never decremented",
+  "Unreachable condition",
+  "Wrong operator: subtraction instead of addition",
+  "Variable name case mismatch",
+  "Logic inverted \u2014 returns min not max",
+  "Off-by-one: i < n misses n",
+  "Infinite recursion \u2014 factorial(n) not factorial(n-1)",
+  "return false inside loop \u2014 only checks first element",
+  "%400 should use OR not AND",
+  "Integer division truncates decimals",
+  "Pass by value \u2014 originals unchanged",
+  "Floating-point precision error",
+  "Inner loop increments i instead of j",
+  "lo/hi should be mid+1/mid-1",
+  "Loop goes full length \u2014 double swap",
+  "Result initialized to 0 \u2014 always 0",
+  "Shallow copy",
+  "Closure captures variable not value",
+  "Integer overflow",
+  "Variable shadowing",
+  "Modifying collection during iteration",
+  "Comparing references not values",
+  "Use after free / null pointer",
+  "Implicit type conversion",
+  "Result lost \u2014 local var or reassignment",
+  "Missing break \u2014 fall-through"
+];
+
+/* ═══════════════════════════════════════
+   AUTH
+   ═══════════════════════════════════════ */
+// Build admin email from ID (keeps admin accounts separate from participant @bughunt.event accounts)
+function adminEmail(id){ return 'admin.' + id.toLowerCase().replace(/[^a-z0-9]/g,'') + '@bughunt.io'; }
+
+// Login
+$('adm-login-btn').onclick = async()=>{
+  const id=$('adm-id').value.trim(), pass=$('adm-pass').value;
+  $('adm-error').textContent='';
+  if(!id||!pass){$('adm-error').textContent='Enter Admin ID and Passkey';return;}
+  $('adm-login-btn').disabled=true;$('adm-login-btn').innerHTML='<span class="spinner"></span>Signing in...';
+  try{
+    const email = adminEmail(id);
+    const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error) throw new Error('Invalid Admin ID or Passkey');
+    currentUser=data.user;
+    const {data:prof,error:pErr}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+    if(pErr||!prof) throw new Error('Profile not found');
+    if(!prof.is_admin) throw new Error('Not an admin account');
+    userProfile=prof;
+    showDashboard();
+  }catch(e){$('adm-error').textContent=e.message||'Login failed';}
+  finally{$('adm-login-btn').disabled=false;$('adm-login-btn').textContent='Sign In';}
+};
+
+// Register new admin
+$('adm-register-btn').onclick = async()=>{
+  const id=$('adm-id').value.trim(), pass=$('adm-pass').value;
+  $('adm-error').textContent='';
+  if(!id||!pass){$('adm-error').textContent='Enter Admin ID and Passkey';return;}
+  if(pass.length<6){$('adm-error').textContent='Passkey must be at least 6 characters';return;}
+  $('adm-register-btn').disabled=true;$('adm-register-btn').innerHTML='<span class="spinner"></span>Registering...';
+  try{
+    const email = adminEmail(id);
+    const {data,error}=await sb.auth.signUp({
+      email, password:pass,
+      options:{data:{full_name:'Admin: '+id, roll_number:'ADMIN'}}
+    });
+    if(error) throw error;
+    currentUser=data.user;
+    // Mark as admin
+    await sb.from('profiles').update({is_admin:true, full_name:'Admin: '+id}).eq('id',currentUser.id);
+    await loadProfile();
+    showDashboard();
+  }catch(e){$('adm-error').textContent=e.message||'Registration failed';}
+  finally{$('adm-register-btn').disabled=false;$('adm-register-btn').textContent='Register Admin';}
+};
+
+async function loadProfile(){
+  if(!sb||!currentUser) return;
+  const {data}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  if(data) userProfile=data;
+}
+
+async function checkSession(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session?.user){
+    currentUser=session.user;
+    const {data:prof}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+    if(prof?.is_admin){userProfile=prof;showDashboard();return;}
+  }
+  $('admin-login').style.display='block';
+}
+
+function showDashboard(){
+  $('admin-login').style.display='none';
+  $('dashboard').style.display='block';
+  $('adm-user-name').textContent=userProfile.full_name||currentUser.email;
+  loadLeaderboard();
+  loadCodes();
+}
+
+$('adm-logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
+
+/* ═══════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════ */
+document.querySelectorAll('.admin-tab').forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    $('pane-'+tab.dataset.tab).classList.add('active');
+  };
+});
+
+/* ═══════════════════════════════════════
+   LEADERBOARD
+   ═══════════════════════════════════════ */
+async function loadLeaderboard(){
+  // Use leaderboard view
+  const {data,error}=await sb.from('leaderboard').select('*');
+  if(error){console.error(error);return;}
+  leaderboardData=data||[];
+  updateStats();
+  renderLeaderboard();
+}
+
+function updateStats(){
+  const d=leaderboardData;
+  $('s-total').textContent=d.length;
+  if(d.length){
+    $('s-avg').textContent=Math.round(d.reduce((s,r)=>s+r.total_score,0)/d.length);
+    $('s-top').textContent=d[0]?.total_score||0;
+    const avgT=Math.round(d.reduce((s,r)=>s+r.time_used,0)/d.length);
+    $('s-avgtime').textContent=fmt(avgT);
+  }
+}
+
+function renderLeaderboard(){
+  const filter=$('search-input').value.toLowerCase();
+  let rows=leaderboardData;
+  if(filter){
+    rows=rows.filter(r=>(r.full_name||'').toLowerCase().includes(filter)||(r.roll_number||'').toLowerCase().includes(filter)||(r.language||'').toLowerCase().includes(filter));
+  }
+
+  // Sort
+  rows=[...rows].sort((a,b)=>{
+    let va=a[sortCol],vb=b[sortCol];
+    if(typeof va==='string') va=(va||'').toLowerCase();
+    if(typeof vb==='string') vb=(vb||'').toLowerCase();
+    if(va<vb) return sortDir==='asc'?-1:1;
+    if(va>vb) return sortDir==='asc'?1:-1;
+    return 0;
+  });
+
+  if(!rows.length){
+    $('lb-body').innerHTML='';
+    $('lb-empty').style.display='block';
+    return;
+  }
+  $('lb-empty').style.display='none';
+
+  $('lb-body').innerHTML=rows.map((r,i)=>{
+    const rank=r.rank||i+1;
+    const rankClass=rank<=3?'rank-'+rank:'';
+    return '<tr class="clickable" data-uid="'+r.user_id+'" data-sid="'+r.score_id+'">'+
+      '<td class="rank-cell '+rankClass+'">'+rank+'</td>'+
+      '<td>'+(r.full_name||'Unknown')+'</td>'+
+      '<td>'+(r.roll_number||'\u2014')+'</td>'+
+      '<td><span class="lang-badge">'+r.language+'</span></td>'+
+      '<td class="score-cell">'+r.total_score+'</td>'+
+      '<td>'+r.accuracy_pts+'</td>'+
+      '<td>'+r.time_bonus+'</td>'+
+      '<td>'+r.total_correct+'/30</td>'+
+      '<td>'+fmt(r.time_used)+'</td>'+
+      '<td><button class="btn-sm btn-ghost view-btn">View</button></td>'+
+    '</tr>';
+  }).join('');
+
+  // Row click
+  $('lb-body').querySelectorAll('tr').forEach(tr=>{
+    tr.onclick=(e)=>{if(e.target.classList.contains('view-btn')||!e.target.closest('button'))showDetail(tr.dataset.sid);};
+  });
+
+  // Sort headers
+  document.querySelectorAll('th[data-sort]').forEach(th=>{
+    th.classList.toggle('sorted',th.dataset.sort===sortCol);
+    th.onclick=()=>{
+      if(sortCol===th.dataset.sort) sortDir=sortDir==='asc'?'desc':'asc';
+      else{sortCol=th.dataset.sort;sortDir=th.dataset.sort==='rank'?'asc':'desc';}
+      renderLeaderboard();
+    };
+  });
+}
+
+$('search-input').oninput=()=>renderLeaderboard();
+$('adm-refresh').onclick=()=>{loadLeaderboard();loadCodes();};
+
+/* ═══════════════════════════════════════
+   DETAIL MODAL
+   ═══════════════════════════════════════ */
+function showDetail(scoreId){
+  const row=leaderboardData.find(r=>r.score_id===scoreId);
+  if(!row) return;
+
+  $('modal-title').textContent=(row.full_name||'Participant')+' \u2014 Details';
+  const maxAcc=(10*PTS.easy)+(10*PTS.medium)+(10*PTS.hard);
+
+  let answers=[];
+  try{answers=JSON.parse(row.answers)||[];}catch(e){}
+
+  let answerHtml='';
+  if(answers.length===TOTAL){
+    // We don't have full question data here, but we have the correct answer indices
+    // Show Q number + whether correct (answer index matches expected)
+    const correctAnswers=[0,1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+    for(let i=0;i<TOTAL;i++){
+      const ua=answers[i];
+      const ca=correctAnswers[i];
+      const ok=ua===ca;
+      const diff=i<10?'easy':i<20?'medium':'hard';
+      const diffLabel=i<10?'E':i<20?'M':'H';
+      answerHtml+='<div class="answer-row '+(ok?'correct':'wrong')+'">'+
+        '<span class="aq-num">Q'+(i+1)+' <span class="diff-badge '+diff+'">'+diffLabel+'</span></span>'+
+        '<span class="aq-status">'+(ok?'\u2713':'\u2717')+'</span>'+
+        '<span class="aq-text">'+(ua>=0?QB_FLAT[i]:'No answer')+(ok?'':' \u2192 Correct: '+QB_FLAT[i])+'</span>'+
+      '</div>';
+    }
+  }
+
+  $('modal-body').innerHTML=
+    '<div class="detail-grid">'+
+      '<div class="detail-item"><div class="di-label">Total Score</div><div class="di-val" style="color:var(--yellow)">'+row.total_score+' / '+(maxAcc+400)+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Rank</div><div class="di-val" style="color:var(--accent)">#'+row.rank+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Accuracy</div><div class="di-val">'+row.accuracy_pts+' / '+maxAcc+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Speed Bonus</div><div class="di-val" style="color:var(--accent)">+'+row.time_bonus+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Easy</div><div class="di-val" style="color:var(--green)">'+row.correct_easy+'/10</div></div>'+
+      '<div class="detail-item"><div class="di-label">Medium</div><div class="di-val" style="color:var(--orange)">'+row.correct_medium+'/10</div></div>'+
+      '<div class="detail-item"><div class="di-label">Hard</div><div class="di-val" style="color:var(--red)">'+row.correct_hard+'/10</div></div>'+
+      '<div class="detail-item"><div class="di-label">Time Used</div><div class="di-val">'+fmt(row.time_used)+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Language</div><div class="di-val"><span class="lang-badge">'+row.language+'</span></div></div>'+
+      '<div class="detail-item"><div class="di-label">Roll Number</div><div class="di-val">'+(row.roll_number||'\u2014')+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Submitted</div><div class="di-val" style="font-size:.85rem">'+new Date(row.created_at).toLocaleString()+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Total Correct</div><div class="di-val">'+row.total_correct+' / 30</div></div>'+
+    '</div>'+
+    (answerHtml?'<h3 style="font-size:.85rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:12px">Answer Sheet</h3><div class="answer-list">'+answerHtml+'</div>':'');
+
+  $('detail-modal').classList.add('active');
+}
+
+$('modal-close').onclick=()=>$('detail-modal').classList.remove('active');
+$('detail-modal').onclick=e=>{if(e.target===$('detail-modal'))$('detail-modal').classList.remove('active');};
+
+/* ═══════════════════════════════════════
+   CODES
+   ═══════════════════════════════════════ */
+async function loadCodes(){
+  const {data,error}=await sb.from('login_codes').select('*, profiles:used_by(full_name)').order('created_at',{ascending:false});
+  if(error){console.error(error);return;}
+  codesData=data||[];
+  // Update stats
+  const used=codesData.filter(c=>c.used_by).length;
+  $('s-codes').textContent=used+'/'+codesData.length;
+  renderCodes();
+}
+
+function renderCodes(){
+  const filter=$('code-search').value.toLowerCase();
+  let rows=codesData;
+  if(filter) rows=rows.filter(c=>c.code.toLowerCase().includes(filter)||(c.label||'').toLowerCase().includes(filter));
+
+  if(!rows.length){
+    $('codes-body').innerHTML='';
+    $('codes-empty').style.display='block';
+    return;
+  }
+  $('codes-empty').style.display='none';
+
+  $('codes-body').innerHTML=rows.map(c=>{
+    const used=!!c.used_by;
+    const userName=c.profiles?.full_name||'\u2014';
+    return '<tr>'+
+      '<td><code style="font-weight:700;letter-spacing:2px;color:'+(used?'var(--text-dim)':'var(--accent)')+'">'+c.code+'</code></td>'+
+      '<td>'+(c.label||'\u2014')+'</td>'+
+      '<td><span class="diff-badge '+(used?'hard':'easy')+'">'+(used?'USED':'AVAILABLE')+'</span></td>'+
+      '<td>'+(used?userName:'\u2014')+'</td>'+
+      '<td>'+(c.used_at?new Date(c.used_at).toLocaleString():'\u2014')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+$('code-search').oninput=()=>renderCodes();
+
+$('gen-btn').onclick=async()=>{
+  const count=parseInt($('gen-count').value)||10;
+  const label=$('gen-label').value.trim();
+  $('gen-btn').disabled=true;$('gen-btn').innerHTML='<span class="spinner"></span>';
+
+  try{
+    // Generate codes client-side and insert
+    const codes=[];
+    for(let i=0;i<count;i++){
+      const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code='';
+      for(let j=0;j<8;j++) code+=chars[Math.floor(Math.random()*chars.length)];
+      codes.push({code, label:label||'Generated'});
+    }
+    const {error}=await sb.from('login_codes').insert(codes);
+    if(error) throw error;
+
+    $('gen-result').innerHTML='<div style="color:var(--green);font-size:.85rem;margin-bottom:8px">Generated '+count+' codes!</div>'+
+      '<div class="codes-list">'+codes.map(c=>'<div class="code-chip"><span class="code-status available"></span>'+c.code+'</div>').join('')+'</div>';
+
+    loadCodes();
+  }catch(e){
+    $('gen-result').innerHTML='<div style="color:var(--red);font-size:.85rem">'+e.message+'</div>';
+  }finally{
+    $('gen-btn').disabled=false;$('gen-btn').textContent='Generate';
+  }
+};
+
+/* ═══════════════════════════════════════
+   EXPORT CSV
+   ═══════════════════════════════════════ */
+$('adm-export').onclick=()=>{
+  if(!leaderboardData.length) return;
+  const headers=['Rank','Name','Roll Number','Language','Total Score','Accuracy','Speed Bonus','Easy','Medium','Hard','Total Correct','Time Used (s)','Submitted'];
+  const rows=leaderboardData.map(r=>[
+    r.rank, r.full_name, r.roll_number||'', r.language, r.total_score, r.accuracy_pts, r.time_bonus,
+    r.correct_easy, r.correct_medium, r.correct_hard, r.total_correct, r.time_used,
+    new Date(r.created_at).toLocaleString()
+  ]);
+  let csv=headers.join(',')+'\n'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='bughunt-leaderboard-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+/* ═══════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════ */
+checkSession();
+
+})();
+</script>
+</body>
+</html>

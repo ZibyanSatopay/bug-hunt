@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUG HUNT</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e17;--surface:#131a2b;--surface2:#1a2340;--surface3:#1e2a4a;
+  --accent:#00e5ff;--accent2:#7c4dff;--green:#00e676;--red:#ff1744;--orange:#ff9100;--yellow:#ffd600;
+  --text:#e0e6f0;--text-dim:#6b7a99;--code-bg:#0d1117;--radius:12px;
+}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  display:flex;justify-content:center;align-items:flex-start;
+  overflow-x:hidden;-webkit-user-select:none;user-select:none;
+}
+.container{width:100%;max-width:800px;padding:20px;position:relative;min-height:100vh}
+
+/* ── Settings Gear ── */
+.settings-btn{
+  position:fixed;top:18px;left:18px;z-index:1000;
+  width:44px;height:44px;border-radius:50%;border:none;
+  background:var(--surface);color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s;border:1px solid rgba(255,255,255,.06);
+}
+.settings-btn:hover{color:var(--accent);background:var(--surface2);transform:rotate(45deg)}
+.settings-btn svg{width:22px;height:22px;fill:currentColor}
+
+.settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1001}
+.settings-overlay.active{display:block}
+
+.settings-panel{
+  position:fixed;top:0;left:0;width:300px;height:100vh;z-index:1002;
+  background:var(--surface);border-right:1px solid rgba(255,255,255,.06);
+  transform:translateX(-100%);transition:transform .3s ease;
+  display:flex;flex-direction:column;overflow-y:auto;
+}
+.settings-panel.active{transform:translateX(0)}
+
+.settings-header{
+  padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.settings-header h2{font-size:1.1rem;letter-spacing:1px}
+.settings-close{
+  background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1.4rem;
+  width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.settings-close:hover{background:var(--surface2);color:var(--text)}
+
+.settings-body{padding:16px 20px;flex:1}
+.settings-item{
+  padding:14px 16px;border-radius:10px;cursor:pointer;
+  display:flex;align-items:center;gap:12px;margin-bottom:6px;
+  color:var(--text);transition:all .2s;font-size:.95rem;
+}
+.settings-item:hover{background:var(--surface2)}
+.settings-item svg{width:18px;height:18px;fill:currentColor;opacity:.6;flex-shrink:0}
+.settings-item.danger{color:var(--red)}
+.settings-item.danger svg{fill:var(--red)}
+
+.settings-info{padding:16px 20px;border-top:1px solid rgba(255,255,255,.06);margin-top:auto}
+.settings-info p{font-size:.78rem;color:var(--text-dim);line-height:1.5}
+.settings-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.72rem;background:rgba(0,229,255,.1);color:var(--accent);font-weight:600;margin-top:6px}
+
+/* ── Confirm Dialog ── */
+.confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;align-items:center;justify-content:center}
+.confirm-overlay.active{display:flex}
+.confirm-box{background:var(--surface);border-radius:var(--radius);padding:32px;max-width:380px;width:90%;text-align:center;border:1px solid rgba(255,255,255,.08);animation:fadeIn .25s ease}
+.confirm-box h3{margin-bottom:10px;font-size:1.1rem}
+.confirm-box p{color:var(--text-dim);font-size:.9rem;margin-bottom:24px}
+.confirm-btns{display:flex;gap:10px;justify-content:center}
+.btn-sm{padding:10px 28px;font-size:.9rem;border-radius:10px;font-weight:600;border:none;cursor:pointer;transition:all .2s}
+.btn-cancel{background:var(--surface2);color:var(--text)}
+.btn-cancel:hover{background:var(--surface3)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{opacity:.85}
+
+/* ── Screens ── */
+.screen{display:none;animation:fadeIn .4s ease}
+.screen.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── Login Screen ── */
+#login-screen{text-align:center;padding-top:8vh}
+.login-card{background:var(--surface);border-radius:var(--radius);padding:36px 32px;max-width:420px;margin:0 auto;border:1px solid rgba(255,255,255,.06)}
+.form-group{margin-bottom:16px;text-align:left}
+.form-group label{display:block;font-size:.78rem;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.form-input{
+  width:100%;padding:12px 16px;border-radius:10px;border:2px solid var(--surface2);
+  background:var(--surface2);color:var(--text);font-size:.95rem;
+  font-family:inherit;transition:all .2s;outline:none;
+}
+.form-input:focus{border-color:var(--accent);background:rgba(0,229,255,.04)}
+.form-input::placeholder{color:var(--text-dim)}
+.form-input.code-input{
+  text-align:center;font-family:'Consolas','Courier New',monospace;
+  font-size:1.4rem;letter-spacing:6px;text-transform:uppercase;
+}
+.login-error{color:var(--red);font-size:.85rem;margin-top:12px;min-height:20px}
+.login-success{color:var(--green);font-size:.85rem;margin-top:12px;min-height:20px}
+.form-row{display:flex;gap:10px}
+.form-row .form-group{flex:1}
+.form-actions{display:flex;gap:10px;margin-top:20px}
+.form-actions .btn{flex:1;padding:12px 20px;font-size:.95rem}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+
+.logged-in-bar{
+  display:none;position:fixed;top:18px;right:18px;z-index:999;
+  padding:8px 16px;border-radius:10px;background:var(--surface);
+  border:1px solid rgba(255,255,255,.06);font-size:.82rem;
+  display:flex;align-items:center;gap:10px;
+}
+.logged-in-bar.show{display:flex}
+.logged-in-bar .user-name{color:var(--accent);font-weight:600}
+.logout-btn{
+  background:none;border:none;color:var(--text-dim);cursor:pointer;
+  font-size:.8rem;text-decoration:underline;transition:color .2s;
+}
+.logout-btn:hover{color:var(--red)}
+
+/* ── Start Screen ── */
+#start-screen{text-align:center;padding-top:7vh}
+.title{
+  font-size:clamp(2.8rem,8vw,4.5rem);font-weight:900;letter-spacing:6px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:8px;
+}
+.subtitle{color:var(--text-dim);font-size:1.1rem;margin-bottom:32px;letter-spacing:1px}
+
+.info-cards{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+.info-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px 20px;text-align:center;min-width:120px}
+.info-card .ic-val{font-size:1.3rem;font-weight:800;margin-bottom:2px}
+.info-card .ic-label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.info-card.easy-c .ic-val{color:var(--green)}
+.info-card.med-c .ic-val{color:var(--orange)}
+.info-card.hard-c .ic-val{color:var(--red)}
+.info-card.time-c .ic-val{color:var(--accent)}
+
+.selector-group{margin-bottom:28px}
+.selector-label{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim);margin-bottom:12px;font-weight:600}
+.lang-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.lang-chip{
+  padding:10px 22px;border-radius:10px;border:2px solid var(--surface2);
+  background:var(--surface);color:var(--text-dim);cursor:pointer;
+  font-size:.92rem;font-weight:600;transition:all .25s;
+  font-family:'Consolas','Courier New',monospace;
+}
+.lang-chip:hover{border-color:var(--accent);color:var(--text)}
+.lang-chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.08);box-shadow:0 0 20px rgba(0,229,255,.1)}
+
+.terminal-line{color:var(--green);font-family:'Consolas','Courier New',monospace;font-size:.88rem;margin-bottom:28px;opacity:.7;margin-top:20px}
+
+.btn{display:inline-block;padding:14px 52px;font-size:1.1rem;font-weight:700;border:none;border-radius:var(--radius);cursor:pointer;transition:all .25s;letter-spacing:1px;text-transform:uppercase}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 24px rgba(0,229,255,.25)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,229,255,.35)}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-ghost{background:var(--surface2);color:var(--text);box-shadow:none;padding:14px 36px}
+.btn-ghost:hover{background:var(--surface3);transform:translateY(-2px)}
+.btn-ghost:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+/* ── Quiz Screen ── */
+.quiz-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:16px;padding:14px 20px;
+  background:var(--surface);border-radius:var(--radius);
+  border:1px solid rgba(255,255,255,.05);flex-wrap:wrap;gap:8px;
+}
+.quiz-header-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.progress-text{font-weight:600;font-size:.95rem}
+.quiz-tag{font-size:.7rem;padding:4px 10px;border-radius:6px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.quiz-tag.easy{background:rgba(0,230,118,.12);color:var(--green)}
+.quiz-tag.medium{background:rgba(255,145,0,.12);color:var(--orange)}
+.quiz-tag.hard{background:rgba(255,23,68,.12);color:var(--red)}
+.quiz-tag.lang-tag{background:rgba(124,77,255,.12);color:var(--accent2)}
+
+.timer{font-family:'Consolas',monospace;font-size:1.15rem;font-weight:700;color:var(--accent);padding:6px 16px;background:rgba(0,229,255,.08);border-radius:8px}
+.timer.warning{color:var(--red);background:rgba(255,23,68,.1);animation:pulse 1s infinite}
+
+.section-bar{display:flex;gap:4px;margin-bottom:16px}
+.section-seg{flex:1;height:6px;border-radius:3px;background:var(--surface2);position:relative;overflow:hidden}
+.section-seg .seg-fill{height:100%;border-radius:3px;transition:width .4s ease;width:0}
+.section-seg.easy .seg-fill{background:var(--green)}
+.section-seg.medium .seg-fill{background:var(--orange)}
+.section-seg.hard .seg-fill{background:var(--red)}
+.section-seg-label{position:absolute;top:10px;left:0;font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+
+.q-map{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;justify-content:center}
+.q-dot{
+  width:32px;height:32px;border-radius:8px;border:2px solid var(--surface2);
+  background:var(--surface);color:var(--text-dim);font-size:.75rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;
+}
+.q-dot:hover{border-color:var(--accent);color:var(--text)}
+.q-dot.current{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.1)}
+.q-dot.answered{background:var(--surface2);color:var(--text);border-color:var(--accent2)}
+.q-dot.easy-dot{border-left:3px solid var(--green)}
+.q-dot.med-dot{border-left:3px solid var(--orange)}
+.q-dot.hard-dot{border-left:3px solid var(--red)}
+
+.question-card{background:var(--surface);border-radius:var(--radius);padding:28px;border:1px solid rgba(255,255,255,.05);animation:fadeIn .3s ease}
+.question-label{font-size:.8rem;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;font-weight:600}
+.question-text{font-size:1.05rem;margin-bottom:18px;line-height:1.5}
+.diff-indicator{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-left:8px}
+.diff-indicator.easy{background:rgba(0,230,118,.12);color:var(--green)}
+.diff-indicator.medium{background:rgba(255,145,0,.12);color:var(--orange)}
+.diff-indicator.hard{background:rgba(255,23,68,.12);color:var(--red)}
+
+.code-block{
+  background:var(--code-bg);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:18px 20px;font-family:'Consolas','Courier New',monospace;
+  font-size:.86rem;line-height:1.65;overflow-x:auto;white-space:pre;
+  margin-bottom:24px;color:#c9d1d9;position:relative;
+}
+.code-block::before{content:attr(data-lang);position:absolute;top:8px;right:12px;font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+
+.options{display:flex;flex-direction:column;gap:10px}
+.option-btn{
+  width:100%;text-align:left;padding:14px 18px;background:var(--surface2);
+  border:2px solid transparent;border-radius:10px;color:var(--text);
+  font-size:.93rem;cursor:pointer;transition:all .2s;line-height:1.4;
+}
+.option-btn:hover{border-color:var(--accent);background:rgba(0,229,255,.06)}
+.option-btn.selected{border-color:var(--accent);background:rgba(0,229,255,.12);box-shadow:0 0 16px rgba(0,229,255,.1)}
+
+.quiz-nav{margin-top:24px;display:flex;justify-content:space-between;gap:12px}
+
+/* ── Section Transition ── */
+.section-transition{display:none;position:fixed;inset:0;z-index:1500;background:var(--bg);align-items:center;justify-content:center;text-align:center}
+.section-transition.active{display:flex}
+.section-transition h2{font-size:2rem;font-weight:800;margin-bottom:8px;letter-spacing:2px}
+.section-transition p{color:var(--text-dim);font-size:1rem;margin-bottom:4px}
+.section-transition .st-pts{font-size:.85rem;margin-top:12px;padding:6px 16px;border-radius:8px;display:inline-block}
+
+/* ── Result Screen ── */
+#result-screen{text-align:center}
+.result-card{background:var(--surface);border-radius:var(--radius);padding:40px 28px;border:1px solid rgba(255,255,255,.05)}
+.big-score{font-size:3.5rem;font-weight:900;margin-bottom:4px;letter-spacing:2px}
+.big-score-label{font-size:.85rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:24px}
+
+.score-breakdown{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
+.sb-card{background:var(--surface2);border-radius:10px;padding:16px 20px;min-width:130px;border:1px solid rgba(255,255,255,.04)}
+.sb-card .sb-val{font-size:1.5rem;font-weight:800;margin-bottom:2px}
+.sb-card .sb-label{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.sb-card.sb-easy .sb-val{color:var(--green)}
+.sb-card.sb-med .sb-val{color:var(--orange)}
+.sb-card.sb-hard .sb-val{color:var(--red)}
+.sb-card.sb-time .sb-val{color:var(--accent)}
+
+.feedback-msg{font-size:1.4rem;font-weight:700;margin-bottom:8px}
+.score-detail{color:var(--text-dim);margin-bottom:24px;font-size:.95rem}
+
+.review-section{text-align:left;margin-top:32px}
+.review-section h3{font-size:1rem;margin-bottom:16px;color:var(--accent);text-transform:uppercase;letter-spacing:2px}
+.review-item{background:var(--surface2);border-radius:10px;padding:18px;margin-bottom:12px;border-left:4px solid var(--green)}
+.review-item.wrong{border-left-color:var(--red)}
+.review-q{font-size:.85rem;color:var(--text-dim);margin-bottom:6px}
+.review-code{font-family:'Consolas',monospace;font-size:.8rem;background:var(--code-bg);padding:10px 12px;border-radius:6px;margin:8px 0;white-space:pre;overflow-x:auto;color:#c9d1d9}
+.review-answer{font-size:.88rem;margin-top:6px}
+.review-answer span{font-family:'Consolas',monospace}
+.correct-text{color:var(--green)}.wrong-text{color:var(--red)}
+.restart-wrap{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* ── Submitted Banner ── */
+.submitted-banner{
+  background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);
+  border-radius:10px;padding:16px 20px;margin-bottom:20px;
+  display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--green);
+}
+.submitted-banner svg{width:20px;height:20px;fill:var(--green);flex-shrink:0}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);
+  padding:14px 28px;border-radius:10px;font-size:.9rem;font-weight:600;z-index:3000;
+  transition:transform .3s ease;pointer-events:none;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{background:var(--green);color:#000}
+.toast.error{background:var(--red);color:#fff}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .container{padding:12px}
+  .question-card{padding:18px}
+  .code-block{font-size:.76rem;padding:14px}
+  .option-btn{font-size:.85rem;padding:12px 14px}
+  .settings-panel{width:100%}
+  .lang-chip{padding:8px 16px;font-size:.84rem}
+  .q-dot{width:28px;height:28px;font-size:.68rem}
+  .info-card{padding:10px 14px;min-width:90px}
+  .big-score{font-size:2.5rem}
+  .sb-card{min-width:100px;padding:12px 14px}
+  .login-card{padding:24px 18px}
+  .logged-in-bar{top:auto;bottom:12px;right:12px;font-size:.75rem}
+}
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Settings -->
+<button class="settings-btn" id="settings-btn" title="Settings">
+  <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84a.48.48 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 00-.59.22L2.74 8.87a.48.48 0 00.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.61 3.61 0 0112 15.6z"/></svg>
+</button>
+<div class="settings-overlay" id="settings-overlay"></div>
+<div class="settings-panel" id="settings-panel">
+  <div class="settings-header"><h2>Settings</h2><button class="settings-close" id="settings-close">&times;</button></div>
+  <div class="settings-body">
+    <div class="settings-item" id="set-restart"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>Restart Quiz</div>
+    <div class="settings-item" id="set-home"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Back to Home</div>
+    <div class="settings-item" id="set-fullscreen"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>Toggle Fullscreen</div>
+    <div class="settings-item" id="set-logout"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>Sign Out</div>
+    <div class="settings-item danger" id="set-clear"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>Clear Local Data</div>
+  </div>
+  <div class="settings-info"><p>BUG HUNT &mdash; College Coding Quiz</p><div class="settings-badge" id="set-status">NOT STARTED</div></div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box"><h3 id="confirm-title">Are you sure?</h3><p id="confirm-msg">This action cannot be undone.</p>
+    <div class="confirm-btns"><button class="btn-sm btn-cancel" id="confirm-cancel">Cancel</button><button class="btn-sm btn-danger" id="confirm-ok">Confirm</button></div>
+  </div>
+</div>
+
+<!-- Section Transition -->
+<div class="section-transition" id="section-transition">
+  <div><h2 id="st-title"></h2><p id="st-sub"></p><div class="st-pts" id="st-pts"></div></div>
+</div>
+
+<!-- Logged-in bar -->
+<div class="logged-in-bar" id="user-bar">
+  <span class="user-name" id="user-name-display"></span>
+  <button class="logout-btn" id="bar-logout">Sign Out</button>
+</div>
+
+<div class="container">
+
+  <!-- ══════ LOGIN SCREEN ══════ -->
+  <div id="login-screen" class="screen active">
+    <div class="title" style="margin-bottom:4px">BUG HUNT</div>
+    <div class="subtitle" style="margin-bottom:32px">Enter your event credentials</div>
+    <div class="login-card">
+      <div class="form-group">
+        <label>Event Code</label>
+        <input class="form-input code-input" type="text" id="auth-code" placeholder="ABCD1234" maxlength="8" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Your Full Name</label>
+        <input class="form-input" type="text" id="code-name" placeholder="John Doe" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Roll Number / ID</label>
+        <input class="form-input" type="text" id="code-roll" placeholder="CS2024001" autocomplete="off">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="btn-code-login" style="flex:1">Enter Event</button>
+      </div>
+      <div class="login-error" id="code-error"></div>
+    </div>
+    <p style="color:var(--text-dim);font-size:.78rem;margin-top:16px">Contact the event organizer if you don't have a code</p>
+  </div>
+
+  <!-- ══════ START SCREEN ══════ -->
+  <div id="start-screen" class="screen">
+    <div class="title">BUG HUNT</div>
+    <div class="subtitle">Find the bug in the code</div>
+    <div class="info-cards">
+      <div class="info-card easy-c"><div class="ic-val">10</div><div class="ic-label">Easy</div></div>
+      <div class="info-card med-c"><div class="ic-val">10</div><div class="ic-label">Medium</div></div>
+      <div class="info-card hard-c"><div class="ic-val">10</div><div class="ic-label">Hard</div></div>
+      <div class="info-card time-c"><div class="ic-val">20:00</div><div class="ic-label">Time</div></div>
+    </div>
+    <div class="selector-group">
+      <div class="selector-label">Choose Your Language</div>
+      <div class="lang-grid" id="lang-grid">
+        <div class="lang-chip selected" data-lang="C">C</div>
+        <div class="lang-chip" data-lang="C++">C++</div>
+        <div class="lang-chip" data-lang="Python">Python</div>
+        <div class="lang-chip" data-lang="Java">Java</div>
+        <div class="lang-chip" data-lang="JavaScript">JavaScript</div>
+      </div>
+    </div>
+    <div class="terminal-line">&gt; Easy &rarr; Medium &rarr; Hard &bull; 30 questions &bull; score = accuracy + speed</div>
+    <button class="btn btn-primary" id="start-btn">Start Hunt</button>
+  </div>
+
+  <!-- ══════ QUIZ SCREEN ══════ -->
+  <div id="quiz-screen" class="screen">
+    <div class="quiz-header">
+      <div class="quiz-header-left">
+        <span class="progress-text" id="progress-text">1 / 30</span>
+        <span class="quiz-tag lang-tag" id="lang-tag">C</span>
+        <span class="quiz-tag" id="diff-tag">EASY</span>
+      </div>
+      <span class="timer" id="timer">20:00</span>
+    </div>
+    <div class="section-bar">
+      <div class="section-seg easy"><div class="seg-fill" id="seg-easy"></div><div class="section-seg-label">Easy</div></div>
+      <div class="section-seg medium"><div class="seg-fill" id="seg-med"></div><div class="section-seg-label">Medium</div></div>
+      <div class="section-seg hard"><div class="seg-fill" id="seg-hard"></div><div class="section-seg-label">Hard</div></div>
+    </div>
+    <div class="q-map" id="q-map"></div>
+    <div class="question-card" id="question-card"></div>
+    <div class="quiz-nav">
+      <button class="btn btn-ghost" id="prev-btn" disabled>&larr; Previous</button>
+      <button class="btn btn-primary" id="next-btn">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- ══════ RESULT SCREEN ══════ -->
+  <div id="result-screen" class="screen">
+    <div class="result-card" id="result-card"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SUPABASE SDK (CDN)
+     ══════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════════════════════════════════
+   SUPABASE CONFIG
+   ═══════════════════════════════════════
+   Replace these with your own Supabase project values.
+   Find them at: https://supabase.com/dashboard → Settings → API
+*/
+const SUPABASE_URL  = 'https://cpbtcmtdlcenpieavddh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYnRjbXRkbGNlbnBpZWF2ZGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTQyMjYsImV4cCI6MjA4OTU3MDIyNn0.lRXI_hrWqla4vUMwq9xgICfboj42AZKAIlUQYm7hlts';
+
+let sb = null;
+let currentUser = null;
+let userProfile = null;
+let isOffline = false;
+
+// Initialize Supabase (graceful fallback if offline)
+try {
+  if (typeof supabase !== 'undefined' && SUPABASE_URL.indexOf('YOUR_PROJECT') === -1) {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  } else {
+    isOffline = true;
+  }
+} catch(e) {
+  isOffline = true;
+}
+
+/* ═══════════════════════════════════════════════
+   QUESTION BANK — 10 easy + 10 medium + 10 hard
+   ═══════════════════════════════════════════════ */
+const QB = {
+easy: [
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int x = 10;\n    if (x = 5) {\n        printf("Five\\n");\n    }\n    return 0;\n}',"C++":'#include <iostream>\nusing namespace std;\nint main() {\n    int x = 10;\n    if (x = 5) {\n        cout << "Five";\n    }\n}',Python:'x = 10\nresult == x + 5\nprint(result)',Java:'public class Main {\n    public static void main(String[] args) {\n        int x = 10;\n        if (x = 5) {\n            System.out.println("Five");\n        }\n    }\n}',JavaScript:'let x = 10;\nif (x = 5) {\n    console.log("Five");\n}'},options:["Assignment = used instead of comparison ==","Variable x is not initialized","Missing else block","Wrong data type for x"],answer:0},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    for (int i = 0; i <= 5; i++) {\n        printf("%d ", i);\n    }\n    // Expected: 0 1 2 3 4\n    return 0;\n}',"C++":'#include <iostream>\nusing namespace std;\nint main() {\n    for (int i = 0; i <= 5; i++) {\n        cout << i << " ";\n    }\n    // Expected: 0 1 2 3 4\n}',Python:'for i in range(0, 6):\n    print(i, end=" ")\n# Expected: 0 1 2 3 4',Java:'for (int i = 0; i <= 5; i++) {\n    System.out.print(i + " ");\n}\n// Expected: 0 1 2 3 4',JavaScript:'for (let i = 0; i <= 5; i++) {\n    console.log(i);\n}\n// Expected: 0 1 2 3 4'},options:["Loop variable should start at 1","Off-by-one: prints 0 to 5 (6 items) instead of 0 to 4","Missing increment statement","Wrong format specifier"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int a = 10, b = 0;\n    printf("%d\\n", a / b);\n    return 0;\n}',"C++":'#include <iostream>\nusing namespace std;\nint main() {\n    int a = 10, b = 0;\n    cout << a / b;\n}',Python:'a = 10\nb = 0\nprint(a / b)',Java:'int a = 10, b = 0;\nSystem.out.println(a / b);',JavaScript:'let a = 10, b = 0;\nconsole.log(a / b);'},options:["Variables should be float type","Cannot print arithmetic expressions","Division by zero \u2014 b is 0","Missing parentheses around a / b"],answer:2},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int arr[5] = {10, 20, 30, 40, 50};\n    printf("%d\\n", arr[5]);\n    return 0;\n}',"C++":'#include <iostream>\nusing namespace std;\nint main() {\n    int arr[5] = {10, 20, 30, 40, 50};\n    cout << arr[5];\n}',Python:'arr = [10, 20, 30, 40, 50]\nprint(arr[5])',Java:'int[] arr = {10, 20, 30, 40, 50};\nSystem.out.println(arr[5]);',JavaScript:'const arr = [10, 20, 30, 40, 50];\nconsole.log(arr[5]);'},options:["Array should be declared differently","Index 5 is out of bounds \u2014 valid indices are 0 to 4","Cannot print array elements directly","Array values are wrong"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int count = 10;\n    while (count > 0) {\n        printf("%d ", count);\n    }\n    return 0;\n}',"C++":'#include <iostream>\nusing namespace std;\nint main() {\n    int count = 10;\n    while (count > 0) {\n        cout << count << " ";\n    }\n}',Python:'count = 10\nwhile count > 0:\n    print(count)',Java:'int count = 10;\nwhile (count > 0) {\n    System.out.println(count);\n}',JavaScript:'let count = 10;\nwhile (count > 0) {\n    console.log(count);\n}'},options:["Condition should be count >= 0","Loop variable count is never decremented \u2014 infinite loop","Should use a for loop instead","count should start at 0"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int score = 95;\n    if (score > 90)\n        printf("A");\n    else if (score > 80)\n        printf("B");\n    else if (score > 90)\n        printf("A+");\n    return 0;\n}',"C++":'int score = 95;\nif (score > 90)\n    cout << "A";\nelse if (score > 80)\n    cout << "B";\nelse if (score > 90)\n    cout << "A+";',Python:'score = 95\nif score > 90:\n    print("A")\nelif score > 80:\n    print("B")\nelif score > 90:\n    print("A+")',Java:'int score = 95;\nif (score > 90)\n    System.out.println("A");\nelse if (score > 80)\n    System.out.println("B");\nelse if (score > 90)\n    System.out.println("A+");',JavaScript:'let score = 95;\nif (score > 90)\n    console.log("A");\nelse if (score > 80)\n    console.log("B");\nelse if (score > 90)\n    console.log("A+");'},options:["score should be a float","Missing curly braces on if blocks","Third condition (> 90) is unreachable \u2014 already caught by first check","Conditions should use >= instead of >"],answer:2},
+  {prompt:"What is the bug in this code?",code:{C:'int add(int a, int b) {\n    int result = a - b;\n    return result;\n}\n// add(3, 4) expected: 7',"C++":'int add(int a, int b) {\n    int result = a - b;\n    return result;\n}\n// add(3, 4) expected: 7',Python:'def add(a, b):\n    result = a - b\n    return result\n\nprint(add(3, 4))\n# Expected: 7',Java:'static int add(int a, int b) {\n    int result = a - b;\n    return result;\n}\n// add(3, 4) expected: 7',JavaScript:'function add(a, b) {\n    let result = a - b;\n    return result;\n}\nconsole.log(add(3, 4));\n// Expected: 7'},options:["Function name should be sum","Wrong operator: uses subtraction (-) instead of addition (+)","Return type is wrong","Function parameters are wrong"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    int Name = 42;\n    printf("%d\\n", name);\n    return 0;\n}',"C++":'int Name = 42;\ncout << name;',Python:'Name = 42\nprint(name)',Java:'int Name = 42;\nSystem.out.println(name);',JavaScript:'let Name = 42;\nconsole.log(name);'},options:["Variable should be a string","Variable name case mismatch \u2014 Name vs name","Missing semicolon","printf format is wrong"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int max(int a, int b) {\n    if (a < b)\n        return a;\n    return b;\n}',"C++":'int maxVal(int a, int b) {\n    if (a < b)\n        return a;\n    return b;\n}',Python:'def max_val(a, b):\n    if a < b:\n        return a\n    return b',Java:'static int maxVal(int a, int b) {\n    if (a < b)\n        return a;\n    return b;\n}',JavaScript:'function maxVal(a, b) {\n    if (a < b)\n        return a;\n    return b;\n}'},options:["Function should take three parameters","Logic is inverted \u2014 returns the smaller value, not the max","Missing else keyword","Comparison operator is wrong"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int sum(int n) {\n    int total = 0;\n    for (int i = 1; i < n; i++)\n        total += i;\n    return total;\n}\n// sum(5) expected: 15 (1+2+3+4+5)',"C++":'int sum(int n) {\n    int total = 0;\n    for (int i = 1; i < n; i++)\n        total += i;\n    return total;\n}\n// sum(5) expected: 15',Python:'def total_sum(n):\n    total = 0\n    for i in range(1, n):\n        total += i\n    return total\n# total_sum(5) expected: 15',Java:'static int sum(int n) {\n    int total = 0;\n    for (int i = 1; i < n; i++)\n        total += i;\n    return total;\n}\n// sum(5) expected: 15',JavaScript:'function sum(n) {\n    let total = 0;\n    for (let i = 1; i < n; i++)\n        total += i;\n    return total;\n}\n// sum(5) expected: 15'},options:["total should start at 1","Loop should use i++ instead of ++i","Off-by-one: i < n misses n itself \u2014 should be i <= n","Return statement is outside the loop"],answer:2}
+],
+medium: [
+  {prompt:"What is the bug in this code?",code:{C:'int factorial(int n) {\n    if (n == 0) return 1;\n    return n * factorial(n);\n}',"C++":'int factorial(int n) {\n    if (n == 0) return 1;\n    return n * factorial(n);\n}',Python:'def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n)',Java:'static int factorial(int n) {\n    if (n == 0) return 1;\n    return n * factorial(n);\n}',JavaScript:'function factorial(n) {\n    if (n === 0) return 1;\n    return n * factorial(n);\n}'},options:["Base case should check n == 1","Recursive call should be factorial(n - 1) \u2014 causes infinite recursion","Should use a loop instead","Missing return type"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int contains(int arr[], int size, int target) {\n    for (int i = 0; i < size; i++) {\n        if (arr[i] == target)\n            return 1;\n        return 0;\n    }\n}',"C++":'bool contains(int arr[], int size, int target) {\n    for (int i = 0; i < size; i++) {\n        if (arr[i] == target)\n            return true;\n        return false;\n    }\n}',Python:'def contains(lst, target):\n    for item in lst:\n        if item == target:\n            return True\n        return False',Java:'static boolean contains(int[] arr, int target) {\n    for (int i = 0; i < arr.length; i++) {\n        if (arr[i] == target)\n            return true;\n        return false;\n    }\n}',JavaScript:'function contains(arr, target) {\n    for (let i = 0; i < arr.length; i++) {\n        if (arr[i] === target)\n            return true;\n        return false;\n    }\n}'},options:["Should use == instead of ===","return false is inside the loop \u2014 only checks first element then exits","Loop variable is wrong","Function should return an integer"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int isLeapYear(int year) {\n    if (year % 4 == 0 && year % 100 != 0\n        && year % 400 == 0)\n        return 1;\n    return 0;\n}',"C++":'bool isLeapYear(int year) {\n    if (year % 4 == 0 && year % 100 != 0\n        && year % 400 == 0)\n        return true;\n    return false;\n}',Python:'def is_leap_year(year):\n    if year % 4 == 0 and year % 100 != 0 \\\n       and year % 400 == 0:\n        return True\n    return False',Java:'static boolean isLeapYear(int year) {\n    if (year % 4 == 0 && year % 100 != 0\n        && year % 400 == 0)\n        return true;\n    return false;\n}',JavaScript:'function isLeapYear(year) {\n    if (year % 4 === 0 && year % 100 !== 0\n        && year % 400 === 0)\n        return true;\n    return false;\n}'},options:["Modulo operator is used incorrectly","Should return a string instead of boolean","Wrong logic: %400 check should use OR (||), not AND (&&)","Year should be checked against 1000"],answer:2},
+  {prompt:"What is the bug in this code?",code:{C:'double average(int arr[], int size) {\n    int sum = 0;\n    for (int i = 0; i < size; i++)\n        sum += arr[i];\n    return sum / size;\n}',"C++":'double average(int arr[], int size) {\n    int sum = 0;\n    for (int i = 0; i < size; i++)\n        sum += arr[i];\n    return sum / size;\n}',Python:'def average(lst):\n    total = 0\n    for item in lst:\n        total += item\n    return total // len(lst)',Java:'static double average(int[] arr) {\n    int sum = 0;\n    for (int x : arr) sum += x;\n    return sum / arr.length;\n}',JavaScript:'function average(arr) {\n    let sum = 0;\n    for (let x of arr) sum += x;\n    return Math.floor(sum / arr.length);\n}'},options:["Array iteration is incorrect","Integer division truncates decimals \u2014 need float/double division","sum should be initialized to 1","Missing return statement"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'void swap(int a, int b) {\n    int temp = a;\n    a = b;\n    b = temp;\n}\n// After swap(x,y): x and y unchanged!',"C++":'void swap(int a, int b) {\n    int temp = a;\n    a = b;\n    b = temp;\n}\n// After swap(x,y): x and y unchanged!',Python:'def swap(a, b):\n    a, b = b, a\n\nx, y = 5, 10\nswap(x, y)\nprint(x, y)  # Still 5 10!',Java:'static void swap(int a, int b) {\n    int temp = a;\n    a = b;\n    b = temp;\n}\n// After swap(x,y): unchanged!',JavaScript:'function swap(a, b) {\n    let temp = a;\n    a = b;\n    b = temp;\n}\nlet x=5, y=10;\nswap(x,y);\nconsole.log(x,y); // Still 5 10!'},options:["temp variable is unnecessary","Parameters are passed by value \u2014 changes don't affect originals","Swap logic is backwards","Function should return a value"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <stdio.h>\nint main() {\n    float a = 0.1 + 0.2;\n    if (a == 0.3)\n        printf("Equal");\n    else\n        printf("Not equal");\n}',"C++":'double a = 0.1 + 0.2;\nif (a == 0.3)\n    cout << "Equal";\nelse\n    cout << "Not equal";',Python:'a = 0.1 + 0.2\nif a == 0.3:\n    print("Equal")\nelse:\n    print("Not equal")',Java:'double a = 0.1 + 0.2;\nif (a == 0.3)\n    System.out.println("Equal");\nelse\n    System.out.println("Not equal");',JavaScript:'let a = 0.1 + 0.2;\nif (a === 0.3)\n    console.log("Equal");\nelse\n    console.log("Not equal");'},options:["Should use parseInt for comparison","Floating-point precision error \u2014 0.1 + 0.2 is not exactly 0.3","Variable a should be int","else block syntax is wrong"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'void printMatrix(int m[3][3]) {\n    for (int i = 0; i < 3; i++) {\n        for (int j = 0; j < 3; i++) {\n            printf("%d ", m[i][j]);\n        }\n    }\n}',"C++":'void printMatrix(int m[3][3]) {\n    for (int i = 0; i < 3; i++) {\n        for (int j = 0; j < 3; i++) {\n            cout << m[i][j] << " ";\n        }\n    }\n}',Python:'def print_matrix(m):\n    for i in range(3):\n        for j in range(3):\n            print(m[i][i], end=" ")\n        print()',Java:'static void printMatrix(int[][] m) {\n    for (int i = 0; i < 3; i++) {\n        for (int j = 0; j < 3; i++) {\n            System.out.print(m[i][j] + " ");\n        }\n    }\n}',JavaScript:'function printMatrix(m) {\n    for (let i = 0; i < 3; i++) {\n        for (let j = 0; j < 3; i++) {\n            process.stdout.write(m[i][j]+" ");\n        }\n    }\n}'},options:["Matrix should be dynamically allocated","Inner loop increments i instead of j \u2014 infinite loop","Array indexing should start at 1","Missing return statement"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int binarySearch(int arr[], int size, int t) {\n    int lo=0, hi=size-1;\n    while (lo <= hi) {\n        int mid = (lo+hi)/2;\n        if (arr[mid]==t) return mid;\n        else if (arr[mid]<t) lo=mid;\n        else hi=mid;\n    }\n    return -1;\n}',"C++":'int binarySearch(vector<int>& a, int t) {\n    int lo=0, hi=a.size()-1;\n    while (lo<=hi) {\n        int mid=(lo+hi)/2;\n        if (a[mid]==t) return mid;\n        else if (a[mid]<t) lo=mid;\n        else hi=mid;\n    }\n    return -1;\n}',Python:'def binary_search(arr, t):\n    lo, hi = 0, len(arr)-1\n    while lo <= hi:\n        mid = (lo+hi)//2\n        if arr[mid]==t: return mid\n        elif arr[mid]<t: lo=mid\n        else: hi=mid\n    return -1',Java:'static int binarySearch(int[] a, int t) {\n    int lo=0, hi=a.length-1;\n    while (lo<=hi) {\n        int mid=(lo+hi)/2;\n        if (a[mid]==t) return mid;\n        else if (a[mid]<t) lo=mid;\n        else hi=mid;\n    }\n    return -1;\n}',JavaScript:'function binarySearch(a, t) {\n    let lo=0, hi=a.length-1;\n    while (lo<=hi) {\n        let mid=Math.floor((lo+hi)/2);\n        if (a[mid]===t) return mid;\n        else if (a[mid]<t) lo=mid;\n        else hi=mid;\n    }\n    return -1;\n}'},options:["mid calculation can overflow","lo and hi should update to mid+1 and mid-1 \u2014 causes infinite loop","Should use recursion instead","Return -1 is unreachable"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'void reverseArray(int a[], int n) {\n    for (int i = 0; i < n; i++) {\n        int t = a[i];\n        a[i] = a[n-1-i];\n        a[n-1-i] = t;\n    }\n}',"C++":'void reverseArray(vector<int>& a) {\n    int n = a.size();\n    for (int i = 0; i < n; i++) {\n        swap(a[i], a[n-1-i]);\n    }\n}',Python:'def reverse_list(lst):\n    n = len(lst)\n    for i in range(n):\n        lst[i], lst[n-1-i] = lst[n-1-i], lst[i]',Java:'static void reverse(int[] a) {\n    for (int i=0; i<a.length; i++) {\n        int t=a[i];\n        a[i]=a[a.length-1-i];\n        a[a.length-1-i]=t;\n    }\n}',JavaScript:'function reverse(a) {\n    for (let i=0; i<a.length; i++) {\n        [a[i], a[a.length-1-i]] = [a[a.length-1-i], a[i]];\n    }\n}'},options:["temp variable is not needed","Loop goes full length \u2014 swaps twice, restoring original order","Index calculation is wrong","Function should return the array"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int power(int base, int exp) {\n    int result = 0;\n    for (int i = 0; i < exp; i++)\n        result *= base;\n    return result;\n}',"C++":'int power(int base, int exp) {\n    int result = 0;\n    for (int i = 0; i < exp; i++)\n        result *= base;\n    return result;\n}',Python:'def power(base, exp):\n    result = 0\n    for i in range(exp):\n        result *= base\n    return result',Java:'static int power(int base, int exp) {\n    int result = 0;\n    for (int i=0; i<exp; i++)\n        result *= base;\n    return result;\n}',JavaScript:'function power(base, exp) {\n    let result = 0;\n    for (let i=0; i<exp; i++)\n        result *= base;\n    return result;\n}'},options:["Loop condition should use <=","result initialized to 0 \u2014 multiplying by 0 always gives 0; should be 1","Should use base ** exp instead","exp should be decremented"],answer:1}
+],
+hard: [
+  {prompt:"What is the bug in this code?",code:{C:'#include <string.h>\nvoid copy(char *dest, char *src) {\n    while (*src != \'\\0\') {\n        *dest++ = *src++;\n    }\n}\n// dest is missing null terminator!',"C++":'void copy(char *dest, const char *src) {\n    while (*src != \'\\0\') {\n        *dest++ = *src++;\n    }\n}\n// No null terminator in dest!',Python:'def deep_copy_matrix(matrix):\n    copy = matrix[:]\n    copy[0][0] = 999\n    # Original matrix[0][0] is also 999!',Java:'int[] original = {1, 2, 3};\nint[] copy = original;\ncopy[0] = 999;\n// original[0] is also 999!',JavaScript:'const original = {a: {b: 1}};\nconst copy = {...original};\ncopy.a.b = 999;\n// original.a.b is also 999!'},options:["Variable naming is wrong","Shallow copy \u2014 nested data still references the original","Should use a loop instead","Copy function has wrong parameters"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int* createArray() {\n    int arr[5] = {1,2,3,4,5};\n    return arr;\n}\n// Returns pointer to local stack memory!',"C++":'int* createArray() {\n    int arr[5] = {1,2,3,4,5};\n    return arr;\n}\n// Dangling pointer!',Python:'def make_counters():\n    counters = []\n    for i in range(5):\n        counters.append(lambda: i)\n    return counters\n# All return 4, not 0-4!',Java:'StringBuilder a = new StringBuilder("Hi");\nStringBuilder b = a;\nb.append(" World");\n// a is also "Hi World"!',JavaScript:'const funcs = [];\nfor (var i = 0; i < 5; i++) {\n    funcs.push(function() { return i; });\n}\n// All functions return 5!'},options:["Array syntax is wrong","Reference/closure captures variable, not its value at that moment","Loop bounds are incorrect","Function should not return anything"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'#include <limits.h>\nint a = INT_MAX;\nint b = a + 1;\nprintf("%d", b);\n// b is negative!',"C++":'#include <climits>\nint a = INT_MAX;\nint b = a + 1;\ncout << b;\n// Negative!',Python:'import sys\na = 2**31 - 1\nb = a + 1\n# Python handles big ints but a C API wont',Java:'int a = Integer.MAX_VALUE;\nint b = a + 1;\nSystem.out.println(b);\n// b is negative!',JavaScript:'let a = Number.MAX_SAFE_INTEGER;\nlet b = a + 1;\nlet c = a + 2;\nconsole.log(b === c); // true!'},options:["Variable should be unsigned","Integer overflow \u2014 value wraps around or loses precision","Addition operator is wrong","Should use long instead of int"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int x = 5;\nvoid foo() {\n    int x = 10;\n    printf("%d", x); // 10\n}\n// Global x is never modified',"C++":'int x = 5;\nvoid foo() {\n    int x = 10;\n    cout << x; // 10\n}\n// Global x unchanged',Python:'x = 5\ndef foo():\n    x = 10\n    print(x)  # 10\nfoo()\nprint(x)  # Still 5!',Java:'int x = 5;\nvoid foo() {\n    int x = 10;\n    System.out.println(x);\n}\n// Field x still 5',JavaScript:'let x = 5;\nfunction foo() {\n    let x = 10;\n    console.log(x); // 10\n}\nfoo();\nconsole.log(x); // Still 5!'},options:["Variable x should be const","Inner variable shadows outer \u2014 original is never modified","Function foo should return x","x cannot be redeclared"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int i = 5;\nint result = i++ + ++i;\nprintf("%d", result);\n// Undefined behavior!',"C++":'int i = 5;\nint result = i++ + ++i;\ncout << result;\n// Undefined behavior!',Python:'lst = [1,2,3,4,5]\nfor i in range(len(lst)):\n    if lst[i] % 2 == 0:\n        lst.pop(i)\n# IndexError!',Java:'List<Integer> list = new ArrayList<>(\n    Arrays.asList(1,2,3,4,5));\nfor (int i=0; i<list.size(); i++) {\n    if (list.get(i)%2==0)\n        list.remove(i);\n}\n// Skips elements!',JavaScript:'let a = [1,2,3,4,5];\nfor (let i=0; i<a.length; i++) {\n    if (a[i]%2===0)\n        a.splice(i,1);\n}\n// Skips element after removal!'},options:["Loop variable should be decremented","Undefined behavior / modifying collection during iteration","Condition check is wrong","Should use while loop"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'char a[] = "hello";\nchar b[] = "hello";\nif (a == b)\n    printf("Equal");\n// Never prints! Compares addresses',"C++":'char a[] = "hello";\nchar b[] = "hello";\nif (a == b)\n    cout << "Equal";\n// Compares addresses!',Python:'s = "hello"\ns[0] = "H"\n# TypeError: strings are immutable!',Java:'String a = new String("hello");\nString b = new String("hello");\nif (a == b)\n    System.out.println("Equal");\n// Never prints! == compares refs',JavaScript:'const a = [1,2,3];\nconst b = [1,2,3];\nif (a === b)\n    console.log("Equal");\n// Never prints! Compares refs'},options:["Should use single quotes","Comparing references/addresses instead of values","Variable declaration is wrong","if statement syntax error"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int *p = malloc(sizeof(int));\n*p = 42;\nfree(p);\nprintf("%d", *p);\n// Use after free!',"C++":'int *p = new int(42);\ndelete p;\ncout << *p;\n// Use after delete!',Python:'def process(data=None):\n    if not data:\n        data = []\n    data.append("x")\n    return data\n# process(0) and process("") also reset!',Java:'String text = null;\nint len = text.length();\n// NullPointerException!',JavaScript:'const user = getUser();\nconsole.log(user.name);\n// TypeError if user is null!'},options:["Variable should be initialized differently","Accessing freed memory / null reference \u2014 dangling pointer or NPE","Function should validate input","Missing import statement"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'unsigned int a = 0;\nint b = -1;\nif (a > b)\n    printf("a > b");\nelse\n    printf("a <= b");\n// Prints "a <= b"! b promoted to huge unsigned',"C++":'unsigned int a = 0;\nint b = -1;\nif (a > b)\n    cout << "a > b";\nelse\n    cout << "a <= b";\n// Unexpected result!',Python:'print("5" > "10")  # True!\n# String comparison is lexicographic\n# "5" > "1" char by char',Java:'Integer a = 200;\nInteger b = 200;\nSystem.out.println(a == b);\n// false! Cache only -128 to 127',JavaScript:'console.log("5" + 3);  // "53"\nconsole.log("5" - 3);  // 2\n// Inconsistent type coercion!'},options:["Comparison operators are wrong","Implicit type conversion produces unexpected result","Variables should be same type","Print function has wrong arguments"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'char* concat(char* a, char* b) {\n    char result[100];\n    strcpy(result, a);\n    strcat(result, b);\n    return result;\n}\n// Returns local array!',"C++":'int& getVal() {\n    int x = 42;\n    return x;\n}\n// Returns ref to local!',Python:'def get_discount(price, disc=0.1):\n    return price * (1 - disc)\n# get_discount(100, 10) returns -900!',Java:'static void reverse(String s) {\n    StringBuilder sb = new StringBuilder(s);\n    sb.reverse();\n}\n// s unchanged! Result not returned',JavaScript:'function double_arr(arr) {\n    arr = arr.map(x => x * 2);\n}\nlet nums = [1,2,3];\ndouble_arr(nums);\nconsole.log(nums); // Still [1,2,3]!'},options:["String operations are wrong","Result is lost \u2014 local variable destroyed or reassignment doesn't affect caller","Function should accept more parameters","Missing null check"],answer:1},
+  {prompt:"What is the bug in this code?",code:{C:'int i = 0;\nswitch(i) {\n    case 0: printf("Zero\\n");\n    case 1: printf("One\\n");\n    case 2: printf("Two\\n");\n}\n// Prints: Zero One Two!',"C++":'int i = 0;\nswitch(i) {\n    case 0: cout << "Zero\\n";\n    case 1: cout << "One\\n";\n    case 2: cout << "Two\\n";\n}\n// Prints all three!',Python:'def process(items):\n    result = {}\n    for item in items:\n        key = item["type"]\n        result[key] = result.get(key,[]).append(item)\n    return result\n# .append() returns None!',Java:'int i = 0;\nswitch(i) {\n    case 0: System.out.println("Zero");\n    case 1: System.out.println("One");\n    case 2: System.out.println("Two");\n}\n// Prints all three!',JavaScript:'let i = 0;\nswitch(i) {\n    case 0: console.log("Zero");\n    case 1: console.log("One");\n    case 2: console.log("Two");\n}\n// Logs all three!'},options:["switch syntax is incorrect","Missing break statements \u2014 falls through all cases","case values should be strings","switch should use if-else instead"],answer:1}
+]
+};
+
+/* ═══════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════ */
+const TOTAL = 30;
+const TIME_LIMIT = 1200;
+const STORAGE_KEY = 'bughunt_v4';
+const PTS = { easy: 10, medium: 20, hard: 30 };
+
+/* ═══════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════ */
+let state = {
+  started:false, currentQ:0, answers:[], order:[], optionOrders:[],
+  timeLeft:TIME_LIMIT, finished:false, lang:'C', scoreSubmitted:false
+};
+let timerInterval = null;
+let selectedLang = 'C';
+let confirmCallback = null;
+
+/* ═══════════════════════════════════════
+   DOM
+   ═══════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const $login=$('login-screen'),$start=$('start-screen'),$quiz=$('quiz-screen'),$result=$('result-screen');
+const $startBtn=$('start-btn'),$nextBtn=$('next-btn'),$prevBtn=$('prev-btn');
+const $progText=$('progress-text'),$timer=$('timer'),$qCard=$('question-card'),$rCard=$('result-card');
+const $langTag=$('lang-tag'),$diffTag=$('diff-tag'),$qMap=$('q-map');
+const $segE=$('seg-easy'),$segM=$('seg-med'),$segH=$('seg-hard');
+const $sBtn=$('settings-btn'),$sPanel=$('settings-panel'),$sOver=$('settings-overlay');
+const $cOver=$('confirm-overlay'),$setStatus=$('set-status');
+const $secTrans=$('section-transition');
+const $userBar=$('user-bar'),$userNameDisplay=$('user-name-display');
+const $toast=$('toast');
+
+function showScreen(s){[$login,$start,$quiz,$result].forEach(x=>x.classList.remove('active'));s.classList.add('active');}
+
+/* ═══════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════ */
+function toast(msg, type='success'){
+  $toast.textContent=msg;
+  $toast.className='toast '+type+' show';
+  setTimeout(()=>{$toast.classList.remove('show');},3000);
+}
+
+/* ═══════════════════════════════════════
+   UTILS
+   ═══════════════════════════════════════ */
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function fmt(s){return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch(e){}}
+function load(){try{const r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch(e){}return null;}
+function clear(){try{localStorage.removeItem(STORAGE_KEY);}catch(e){}}
+function getAllQuestions(){return [...QB.easy,...QB.medium,...QB.hard];}
+function getDiff(qi){if(qi<10)return'easy';if(qi<20)return'medium';return'hard';}
+function getDiffLabel(qi){if(qi<10)return'EASY';if(qi<20)return'MEDIUM';return'HARD';}
+
+/* ═══════════════════════════════════════
+   AUTH — SUPABASE
+   ═══════════════════════════════════════ */
+function updateUserBar(){
+  if(currentUser && userProfile){
+    $userNameDisplay.textContent = userProfile.full_name || currentUser.email || 'User';
+    $userBar.classList.add('show');
+  } else {
+    $userBar.classList.remove('show');
+  }
+}
+
+async function loadProfile(){
+  if(!sb || !currentUser) return;
+  const {data} = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if(data) userProfile = data;
+}
+
+// Event Code Login — uses anonymous auth (no fake emails)
+$('btn-code-login').onclick = async()=>{
+  const code = $('auth-code').value.trim().toUpperCase();
+  const name = $('code-name').value.trim();
+  const roll = $('code-roll').value.trim();
+  $('code-error').textContent='';
+  if(!code){$('code-error').textContent='Enter your event code';return;}
+  if(!name){$('code-error').textContent='Enter your name';return;}
+  if(!roll){$('code-error').textContent='Enter your roll number / ID';return;}
+  if(!sb){$('code-error').textContent='Backend not configured. Contact organizer.';return;}
+  $('btn-code-login').disabled=true;$('btn-code-login').innerHTML='<span class="spinner"></span>Verifying...';
+  try{
+    // 1. Check code exists and is unused
+    const {data:codeRow, error:cErr} = await sb.from('login_codes').select('*').eq('code',code).is('used_by',null).single();
+    if(cErr || !codeRow) throw new Error('Invalid or already-used code');
+
+    // 2. Sign in anonymously (no email needed)
+    const {data:anonData, error:anonErr} = await sb.auth.signInAnonymously();
+    if(anonErr) throw anonErr;
+    const user = anonData.user;
+    currentUser = user;
+
+    // 3. Create profile for this anonymous user
+    // The trigger may have created one, but update it with real info
+    const {error:profErr} = await sb.from('profiles').upsert({
+      id: user.id,
+      full_name: name,
+      roll_number: roll,
+      is_admin: false
+    });
+    if(profErr) console.warn('Profile upsert:', profErr.message);
+
+    // 4. Claim the code
+    const {error:claimErr} = await sb.from('login_codes').update({
+      used_by: user.id,
+      used_at: new Date().toISOString()
+    }).eq('id', codeRow.id);
+    if(claimErr) console.warn('Code claim:', claimErr.message);
+
+    await loadProfile();
+    updateUserBar();
+    showScreen($start);
+    toast('Welcome, '+name+'!');
+    tryRestoreQuiz();
+  }catch(e){$('code-error').textContent=e.message||'Verification failed';}
+  finally{$('btn-code-login').disabled=false;$('btn-code-login').textContent='Enter Event';}
+};
+
+// Logout
+async function doLogout(){
+  clearInterval(timerInterval);
+  if(sb) await sb.auth.signOut();
+  currentUser=null;userProfile=null;
+  clear();
+  state={started:false,currentQ:0,answers:[],order:[],optionOrders:[],timeLeft:TIME_LIMIT,finished:false,lang:'C',scoreSubmitted:false};
+  $userBar.classList.remove('show');
+  showScreen($login);
+  toast('Signed out');
+}
+$('bar-logout').onclick = ()=>doLogout();
+$('set-logout').onclick = ()=>{closeS();doLogout();};
+
+// Auto-restore session on page load
+async function checkSession(){
+  if(!sb) {
+    // Offline mode — skip login, go straight to start
+    showScreen($start);
+    tryRestoreQuiz();
+    return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    updateUserBar();
+    showScreen($start);
+    tryRestoreQuiz();
+  } else {
+    showScreen($login);
+  }
+}
+
+function tryRestoreQuiz(){
+  const s=load();
+  if(s&&s.started&&!s.finished&&s.lang){state=s;selectedLang=state.lang;lastSection=Math.floor(state.currentQ/10)-1;initQuiz(false);}
+  else if(s&&s.finished){state=s;selectedLang=state.lang;finishQuiz();}
+}
+
+/* ═══════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════ */
+function openS(){$sPanel.classList.add('active');$sOver.classList.add('active');
+  if(state.started&&!state.finished)$setStatus.textContent=(userProfile?.full_name||'Quiz')+' \u2022 Q'+(state.currentQ+1)+'/30';
+  else if(state.finished)$setStatus.textContent='COMPLETED';
+  else $setStatus.textContent=userProfile?.full_name||'NOT STARTED';
+}
+function closeS(){$sPanel.classList.remove('active');$sOver.classList.remove('active');}
+function showConfirm(t,m,cb){$('confirm-title').textContent=t;$('confirm-msg').textContent=m;confirmCallback=cb;$cOver.classList.add('active');}
+function hideConfirm(){$cOver.classList.remove('active');confirmCallback=null;}
+
+$sBtn.onclick=openS;$sOver.onclick=closeS;$('settings-close').onclick=closeS;
+$('set-restart').onclick=()=>{closeS();if(state.started&&!state.finished){showConfirm('Restart Quiz?','Your progress will be lost.',()=>{clearInterval(timerInterval);clear();initQuiz(true);});}else{clear();initQuiz(true);}};
+$('set-home').onclick=()=>{closeS();if(state.started&&!state.finished){showConfirm('Back to Home?','Progress will be lost.',()=>{clearInterval(timerInterval);clear();resetHome();});}else{clear();resetHome();}};
+$('set-fullscreen').onclick=()=>{closeS();if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else document.exitFullscreen().catch(()=>{});};
+$('set-clear').onclick=()=>{closeS();showConfirm('Clear All Data?','Erase all saved progress.',()=>{clearInterval(timerInterval);clear();resetHome();});};
+$('confirm-cancel').onclick=hideConfirm;
+$('confirm-ok').onclick=()=>{if(confirmCallback)confirmCallback();hideConfirm();};
+
+function resetHome(){
+  state={started:false,currentQ:0,answers:[],order:[],optionOrders:[],timeLeft:TIME_LIMIT,finished:false,lang:selectedLang,scoreSubmitted:false};
+  if(currentUser)showScreen($start);else showScreen($login);
+}
+
+/* ═══════════════════════════════════════
+   LANGUAGE SELECTOR
+   ═══════════════════════════════════════ */
+document.querySelectorAll('.lang-chip').forEach(c=>{
+  c.onclick=()=>{document.querySelectorAll('.lang-chip').forEach(x=>x.classList.remove('selected'));c.classList.add('selected');selectedLang=c.dataset.lang;};
+});
+
+/* ═══════════════════════════════════════
+   QUIZ INIT
+   ═══════════════════════════════════════ */
+function initQuiz(fresh){
+  if(fresh){
+    const eOrder=shuffle([...Array(10).keys()]);
+    const mOrder=shuffle([...Array(10).keys()].map(i=>i+10));
+    const hOrder=shuffle([...Array(10).keys()].map(i=>i+20));
+    const order=[...eOrder,...mOrder,...hOrder];
+    const optionOrders=order.map(()=>shuffle([0,1,2,3]));
+    state={started:true,currentQ:0,answers:new Array(TOTAL).fill(-1),order,optionOrders,timeLeft:TIME_LIMIT,finished:false,lang:selectedLang,scoreSubmitted:false};
+  }
+  selectedLang=state.lang;
+  $langTag.textContent=state.lang;
+  save();showScreen($quiz);renderQ();startTimer();buildMap();
+}
+
+/* ═══════════════════════════════════════
+   QUESTION MAP
+   ═══════════════════════════════════════ */
+function buildMap(){
+  let html='';
+  for(let i=0;i<TOTAL;i++){
+    const d=getDiff(i);
+    const dotClass=d==='easy'?'easy-dot':d==='medium'?'med-dot':'hard-dot';
+    html+='<div class="q-dot '+dotClass+(i===state.currentQ?' current':'')+(state.answers[i]!==-1?' answered':'')+'" data-qi="'+i+'">'+(i+1)+'</div>';
+  }
+  $qMap.innerHTML=html;
+  $qMap.querySelectorAll('.q-dot').forEach(dot=>{
+    dot.onclick=()=>{state.currentQ=parseInt(dot.dataset.qi);save();renderQ();updateMap();};
+  });
+}
+function updateMap(){
+  $qMap.querySelectorAll('.q-dot').forEach((dot,i)=>{
+    dot.classList.toggle('current',i===state.currentQ);
+    dot.classList.toggle('answered',state.answers[i]!==-1);
+  });
+}
+
+/* ═══════════════════════════════════════
+   SECTION TRANSITION
+   ═══════════════════════════════════════ */
+let lastSection=-1;
+function checkSectionTransition(){
+  const sec=Math.floor(state.currentQ/10);
+  if(sec!==lastSection&&lastSection!==-1&&sec>lastSection){
+    const labels=['Easy','Medium','Hard'];
+    const colors=['var(--green)','var(--orange)','var(--red)'];
+    const ptLabels=['10 pts each','20 pts each','30 pts each'];
+    $('st-title').textContent=labels[sec]+' Round';
+    $('st-title').style.color=colors[sec];
+    $('st-sub').textContent='Questions '+(sec*10+1)+' - '+((sec+1)*10);
+    $('st-pts').textContent=ptLabels[sec];
+    $('st-pts').style.background=colors[sec].replace(')',',0.15)').replace('var(','rgba(');
+    $('st-pts').style.color=colors[sec];
+    $secTrans.classList.add('active');
+    setTimeout(()=>{$secTrans.classList.remove('active');},1200);
+  }
+  lastSection=sec;
+}
+
+/* ═══════════════════════════════════════
+   RENDER QUESTION
+   ═══════════════════════════════════════ */
+function renderQ(){
+  const allQ=getAllQuestions();
+  const idx=state.order[state.currentQ];
+  const q=allQ[idx];
+  const optOrd=state.optionOrders[state.currentQ];
+  const code=q.code[state.lang]||q.code['C'];
+  const diff=getDiff(state.currentQ);
+  const diffLabel=getDiffLabel(state.currentQ);
+
+  $progText.textContent=(state.currentQ+1)+' / '+TOTAL;
+  $diffTag.textContent=diffLabel;
+  $diffTag.className='quiz-tag '+diff;
+
+  const secIdx=Math.floor(state.currentQ/10);
+  const secProgress=((state.currentQ%10)+1)/10*100;
+  $segE.style.width=(secIdx>0?'100':(secIdx===0?secProgress:0))+'%';
+  $segM.style.width=(secIdx>1?'100':(secIdx===1?secProgress:0))+'%';
+  $segH.style.width=(secIdx>2?'100':(secIdx===2?secProgress:0))+'%';
+
+  const sel=state.answers[state.currentQ];
+  const isLast=state.currentQ===TOTAL-1;
+
+  let optHtml=optOrd.map(oi=>{
+    return '<button class="option-btn'+(oi===sel?' selected':'')+'" data-orig="'+oi+'">'+esc(q.options[oi])+'</button>';
+  }).join('');
+
+  $qCard.innerHTML=
+    '<div class="question-label">'+state.lang+' &mdash; Q'+(state.currentQ+1)+
+    '<span class="diff-indicator '+diff+'">'+diffLabel+' ('+PTS[diff]+' pts)</span></div>'+
+    '<div class="question-text">'+esc(q.prompt)+'</div>'+
+    '<div class="code-block" data-lang="'+state.lang+'">'+esc(code)+'</div>'+
+    '<div class="options">'+optHtml+'</div>';
+
+  $nextBtn.textContent=isLast?'Finish':'Next \u2192';
+  $prevBtn.disabled=state.currentQ===0;
+
+  $qCard.querySelectorAll('.option-btn').forEach(btn=>{btn.onclick=()=>selectOpt(btn);});
+  updateMap();
+  checkSectionTransition();
+}
+
+function selectOpt(btn){
+  $qCard.querySelectorAll('.option-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.answers[state.currentQ]=parseInt(btn.dataset.orig);
+  save();updateMap();
+}
+
+/* ═══════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════ */
+$nextBtn.onclick=()=>{if(state.currentQ<TOTAL-1){state.currentQ++;save();renderQ();}else finishQuiz();};
+$prevBtn.onclick=()=>{if(state.currentQ>0){state.currentQ--;save();renderQ();}};
+$startBtn.onclick=()=>initQuiz(true);
+
+/* ═══════════════════════════════════════
+   TIMER
+   ═══════════════════════════════════════ */
+function startTimer(){
+  clearInterval(timerInterval);
+  updTimer();
+  timerInterval=setInterval(()=>{state.timeLeft--;save();updTimer();if(state.timeLeft<=0)finishQuiz();},1000);
+}
+function updTimer(){$timer.textContent=fmt(Math.max(0,state.timeLeft));$timer.classList.toggle('warning',state.timeLeft<=120);}
+
+/* ═══════════════════════════════════════
+   SUBMIT SCORE TO SUPABASE
+   ═══════════════════════════════════════ */
+async function submitScore(scoreData){
+  if(!sb || !currentUser || state.scoreSubmitted) return;
+  try{
+    const {error} = await sb.from('scores').insert({
+      user_id: currentUser.id,
+      language: state.lang,
+      total_score: scoreData.totalScore,
+      accuracy_pts: scoreData.accuracyPts,
+      time_bonus: scoreData.timeBonus,
+      correct_easy: scoreData.correctE,
+      correct_medium: scoreData.correctM,
+      correct_hard: scoreData.correctH,
+      total_correct: scoreData.totalCorrect,
+      time_used: scoreData.timeUsed,
+      answers: JSON.stringify(state.answers)
+    });
+    if(error) throw error;
+    state.scoreSubmitted = true;
+    save();
+    toast('Score submitted successfully!');
+  }catch(e){
+    console.error('Score submit error:', e);
+    toast('Score submission failed. Contact organizer.','error');
+  }
+}
+
+/* ═══════════════════════════════════════
+   SCORING & RESULTS
+   ═══════════════════════════════════════ */
+function finishQuiz(){
+  clearInterval(timerInterval);
+  state.finished=true;save();showScreen($result);
+
+  const allQ=getAllQuestions();
+  let correctE=0,correctM=0,correctH=0;
+  const reviews=[];
+
+  for(let i=0;i<TOTAL;i++){
+    const idx=state.order[i];
+    const q=allQ[idx];
+    const code=q.code[state.lang]||q.code['C'];
+    const ua=state.answers[i];
+    const ok=ua===q.answer;
+    const diff=getDiff(i);
+    if(ok){if(diff==='easy')correctE++;else if(diff==='medium')correctM++;else correctH++;}
+    const ut=ua>=0?q.options[ua]:'(No answer)';
+    const ct=q.options[q.answer];
+    reviews.push(
+      '<div class="review-item '+(ok?'':'wrong')+'">'+
+      '<div class="review-q">Q'+(i+1)+' <span class="diff-indicator '+diff+'">'+diff.toUpperCase()+'</span> '+esc(q.prompt)+'</div>'+
+      '<div class="review-code">'+esc(code)+'</div>'+
+      '<div class="review-answer">Your answer: <span class="'+(ok?'correct-text':'wrong-text')+'">'+esc(ut)+'</span></div>'+
+      (!ok?'<div class="review-answer">Correct: <span class="correct-text">'+esc(ct)+'</span></div>':'')+
+      '</div>'
+    );
+  }
+
+  const totalCorrect=correctE+correctM+correctH;
+  const accuracyPts=(correctE*PTS.easy)+(correctM*PTS.medium)+(correctH*PTS.hard);
+  const maxAccuracy=(10*PTS.easy)+(10*PTS.medium)+(10*PTS.hard);
+  const timeUsed=TIME_LIMIT-Math.max(0,state.timeLeft);
+  const timeLeft=Math.max(0,state.timeLeft);
+  const timePct=timeLeft/TIME_LIMIT;
+  const timeBonus=Math.round(timePct*400);
+  const totalScore=accuracyPts+timeBonus;
+  const maxScore=maxAccuracy+400;
+
+  const pct=totalScore/maxScore*100;
+  let feedback,feedColor;
+  if(pct>=80){feedback='Excellent! Bug Hunter Elite!';feedColor='var(--green)';}
+  else if(pct>=60){feedback='Great Job! Sharp Eyes!';feedColor='var(--accent)';}
+  else if(pct>=40){feedback='Good Effort! Keep Practicing!';feedColor='var(--orange)';}
+  else{feedback='Keep Learning! You\'ll Get There!';feedColor='var(--red)';}
+
+  // Submit to Supabase
+  submitScore({totalScore, accuracyPts, timeBonus, correctE, correctM, correctH, totalCorrect, timeUsed});
+
+  const submittedBanner = sb && currentUser ?
+    '<div class="submitted-banner"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Your score has been submitted to the event organizers.</div>' :
+    '<div class="submitted-banner" style="background:rgba(255,145,0,.08);border-color:rgba(255,145,0,.2);color:var(--orange)"><svg viewBox="0 0 24 24" style="fill:var(--orange)"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Offline mode \u2014 score not saved to server.</div>';
+
+  $rCard.innerHTML=
+    submittedBanner+
+    '<div class="big-score" style="background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">'+totalScore+'</div>'+
+    '<div class="big-score-label">Total Score out of '+maxScore+'</div>'+
+    '<div class="score-breakdown">'+
+      '<div class="sb-card sb-easy"><div class="sb-val">'+correctE+'/10</div><div class="sb-label">Easy ('+PTS.easy+'pts)</div></div>'+
+      '<div class="sb-card sb-med"><div class="sb-val">'+correctM+'/10</div><div class="sb-label">Medium ('+PTS.medium+'pts)</div></div>'+
+      '<div class="sb-card sb-hard"><div class="sb-val">'+correctH+'/10</div><div class="sb-label">Hard ('+PTS.hard+'pts)</div></div>'+
+      '<div class="sb-card sb-time"><div class="sb-val">+'+timeBonus+'</div><div class="sb-label">Time Bonus</div></div>'+
+    '</div>'+
+    '<div style="background:var(--surface2);border-radius:10px;padding:16px 20px;margin-bottom:24px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'+
+        '<div><span style="font-size:.8rem;color:var(--text-dim);">Accuracy</span><br><span style="font-size:1.2rem;font-weight:800;">'+accuracyPts+' / '+maxAccuracy+'</span></div>'+
+        '<div style="font-size:1.5rem;color:var(--text-dim);">+</div>'+
+        '<div><span style="font-size:.8rem;color:var(--text-dim);">Speed</span><br><span style="font-size:1.2rem;font-weight:800;color:var(--accent);">'+timeBonus+' / 400</span></div>'+
+        '<div style="font-size:1.5rem;color:var(--text-dim);">=</div>'+
+        '<div><span style="font-size:.8rem;color:var(--text-dim);">Total</span><br><span style="font-size:1.2rem;font-weight:800;color:var(--yellow);">'+totalScore+' / '+maxScore+'</span></div>'+
+      '</div>'+
+      '<div style="margin-top:12px;font-size:.78rem;color:var(--text-dim);">Time: '+fmt(timeUsed)+' used &bull; '+fmt(timeLeft)+' left &bull; '+totalCorrect+'/30 correct</div>'+
+    '</div>'+
+    '<div class="feedback-msg" style="color:'+feedColor+'">'+feedback+'</div>'+
+    '<div class="score-detail">'+totalCorrect+' out of 30 questions answered correctly</div>'+
+    '<div class="review-section"><h3>Review Answers</h3>'+reviews.join('')+'</div>'+
+    '<div class="restart-wrap">'+
+      '<button class="btn btn-primary" id="restart-btn">Try Again</button>'+
+      '<button class="btn btn-ghost" id="home-btn">Home</button>'+
+    '</div>';
+
+  $('restart-btn').onclick=()=>{clear();initQuiz(true);};
+  $('home-btn').onclick=()=>{clear();resetHome();};
+}
+
+/* ═══════════════════════════════════════
+   ANTI-CHEAT
+   ═══════════════════════════════════════ */
+document.addEventListener('contextmenu',e=>{if(state.started&&!state.finished)e.preventDefault();});
+
+/* ═══════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════ */
+checkSession();
+
+})();
+</script>
+</body>
+</html>
