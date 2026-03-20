@@ -442,8 +442,6 @@ const SUPABASE_URL  = 'https://cpbtcmtdlcenpieavddh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYnRjbXRkbGNlbnBpZWF2ZGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTQyMjYsImV4cCI6MjA4OTU3MDIyNn0.lRXI_hrWqla4vUMwq9xgICfboj42AZKAIlUQYm7hlts';
 
 let sb = null;
-let currentUser = null;
-let userProfile = null;
 let isOffline = false;
 
 // Initialize Supabase (graceful fallback if offline)
@@ -558,24 +556,23 @@ function getDiff(qi){if(qi<10)return'easy';if(qi<20)return'medium';return'hard';
 function getDiffLabel(qi){if(qi<10)return'EASY';if(qi<20)return'MEDIUM';return'HARD';}
 
 /* ═══════════════════════════════════════
-   AUTH — SUPABASE
+   PARTICIPANT SESSION (no auth needed!)
+   Uses RPC functions — no Supabase Auth at all
    ═══════════════════════════════════════ */
+let participantName = '';
+let participantRoll = '';
+let claimedCodeId = null;
+
 function updateUserBar(){
-  if(currentUser && userProfile){
-    $userNameDisplay.textContent = userProfile.full_name || currentUser.email || 'User';
+  if(participantName){
+    $userNameDisplay.textContent = participantName;
     $userBar.classList.add('show');
   } else {
     $userBar.classList.remove('show');
   }
 }
 
-async function loadProfile(){
-  if(!sb || !currentUser) return;
-  const {data} = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  if(data) userProfile = data;
-}
-
-// Event Code Login — uses anonymous auth (no fake emails)
+// Event Code Login — calls RPC, no auth
 $('btn-code-login').onclick = async()=>{
   const code = $('auth-code').value.trim().toUpperCase();
   const name = $('code-name').value.trim();
@@ -587,34 +584,16 @@ $('btn-code-login').onclick = async()=>{
   if(!sb){$('code-error').textContent='Backend not configured. Contact organizer.';return;}
   $('btn-code-login').disabled=true;$('btn-code-login').innerHTML='<span class="spinner"></span>Verifying...';
   try{
-    // 1. Check code exists and is unused
-    const {data:codeRow, error:cErr} = await sb.from('login_codes').select('*').eq('code',code).is('used_by',null).single();
-    if(cErr || !codeRow) throw new Error('Invalid or already-used code');
-
-    // 2. Sign in anonymously (no email needed)
-    const {data:anonData, error:anonErr} = await sb.auth.signInAnonymously();
-    if(anonErr) throw anonErr;
-    const user = anonData.user;
-    currentUser = user;
-
-    // 3. Create profile for this anonymous user
-    // The trigger may have created one, but update it with real info
-    const {error:profErr} = await sb.from('profiles').upsert({
-      id: user.id,
-      full_name: name,
-      roll_number: roll,
-      is_admin: false
+    const {data, error} = await sb.rpc('claim_code', {
+      p_code: code, p_name: name, p_roll: roll
     });
-    if(profErr) console.warn('Profile upsert:', profErr.message);
-
-    // 4. Claim the code
-    const {error:claimErr} = await sb.from('login_codes').update({
-      used_by: user.id,
-      used_at: new Date().toISOString()
-    }).eq('id', codeRow.id);
-    if(claimErr) console.warn('Code claim:', claimErr.message);
-
-    await loadProfile();
+    if(error) throw new Error(error.message);
+    if(!data.success) throw new Error(data.error || 'Invalid code');
+    claimedCodeId = data.code_id;
+    participantName = name;
+    participantRoll = roll;
+    // Save session locally
+    localStorage.setItem('bh_session', JSON.stringify({codeId:claimedCodeId, name, roll}));
     updateUserBar();
     showScreen($start);
     toast('Welcome, '+name+'!');
@@ -624,10 +603,10 @@ $('btn-code-login').onclick = async()=>{
 };
 
 // Logout
-async function doLogout(){
+function doLogout(){
   clearInterval(timerInterval);
-  if(sb) await sb.auth.signOut();
-  currentUser=null;userProfile=null;
+  claimedCodeId=null;participantName='';participantRoll='';
+  localStorage.removeItem('bh_session');
   clear();
   state={started:false,currentQ:0,answers:[],order:[],optionOrders:[],timeLeft:TIME_LIMIT,finished:false,lang:'C',scoreSubmitted:false};
   $userBar.classList.remove('show');
@@ -637,24 +616,21 @@ async function doLogout(){
 $('bar-logout').onclick = ()=>doLogout();
 $('set-logout').onclick = ()=>{closeS();doLogout();};
 
-// Auto-restore session on page load
-async function checkSession(){
-  if(!sb) {
-    // Offline mode — skip login, go straight to start
-    showScreen($start);
-    tryRestoreQuiz();
-    return;
-  }
-  const {data:{session}} = await sb.auth.getSession();
-  if(session?.user){
-    currentUser = session.user;
-    await loadProfile();
-    updateUserBar();
-    showScreen($start);
-    tryRestoreQuiz();
-  } else {
-    showScreen($login);
-  }
+// Restore session from localStorage
+function checkSession(){
+  try{
+    const sess = JSON.parse(localStorage.getItem('bh_session'));
+    if(sess && sess.codeId){
+      claimedCodeId = sess.codeId;
+      participantName = sess.name || '';
+      participantRoll = sess.roll || '';
+      updateUserBar();
+      showScreen($start);
+      tryRestoreQuiz();
+      return;
+    }
+  }catch(e){}
+  showScreen($login);
 }
 
 function tryRestoreQuiz(){
@@ -667,9 +643,9 @@ function tryRestoreQuiz(){
    SETTINGS
    ═══════════════════════════════════════ */
 function openS(){$sPanel.classList.add('active');$sOver.classList.add('active');
-  if(state.started&&!state.finished)$setStatus.textContent=(userProfile?.full_name||'Quiz')+' \u2022 Q'+(state.currentQ+1)+'/30';
+  if(state.started&&!state.finished)$setStatus.textContent=(participantName||'Quiz')+' \u2022 Q'+(state.currentQ+1)+'/30';
   else if(state.finished)$setStatus.textContent='COMPLETED';
-  else $setStatus.textContent=userProfile?.full_name||'NOT STARTED';
+  else $setStatus.textContent=participantName||'NOT STARTED';
 }
 function closeS(){$sPanel.classList.remove('active');$sOver.classList.remove('active');}
 function showConfirm(t,m,cb){$('confirm-title').textContent=t;$('confirm-msg').textContent=m;confirmCallback=cb;$cOver.classList.add('active');}
@@ -685,7 +661,7 @@ $('confirm-ok').onclick=()=>{if(confirmCallback)confirmCallback();hideConfirm();
 
 function resetHome(){
   state={started:false,currentQ:0,answers:[],order:[],optionOrders:[],timeLeft:TIME_LIMIT,finished:false,lang:selectedLang,scoreSubmitted:false};
-  if(currentUser)showScreen($start);else showScreen($login);
+  if(claimedCodeId)showScreen($start);else showScreen($login);
 }
 
 /* ═══════════════════════════════════════
@@ -828,28 +804,29 @@ function updTimer(){$timer.textContent=fmt(Math.max(0,state.timeLeft));$timer.cl
    SUBMIT SCORE TO SUPABASE
    ═══════════════════════════════════════ */
 async function submitScore(scoreData){
-  if(!sb || !currentUser || state.scoreSubmitted) return;
+  if(!sb || !claimedCodeId || state.scoreSubmitted) return;
   try{
-    const {error} = await sb.from('scores').insert({
-      user_id: currentUser.id,
-      language: state.lang,
-      total_score: scoreData.totalScore,
-      accuracy_pts: scoreData.accuracyPts,
-      time_bonus: scoreData.timeBonus,
-      correct_easy: scoreData.correctE,
-      correct_medium: scoreData.correctM,
-      correct_hard: scoreData.correctH,
-      total_correct: scoreData.totalCorrect,
-      time_used: scoreData.timeUsed,
-      answers: JSON.stringify(state.answers)
+    const {data, error} = await sb.rpc('submit_score', {
+      p_code_id: claimedCodeId,
+      p_language: state.lang,
+      p_total_score: scoreData.totalScore,
+      p_accuracy_pts: scoreData.accuracyPts,
+      p_time_bonus: scoreData.timeBonus,
+      p_correct_easy: scoreData.correctE,
+      p_correct_medium: scoreData.correctM,
+      p_correct_hard: scoreData.correctH,
+      p_total_correct: scoreData.totalCorrect,
+      p_time_used: scoreData.timeUsed,
+      p_answers: JSON.stringify(state.answers)
     });
-    if(error) throw error;
+    if(error) throw new Error(error.message);
+    if(data && !data.success) throw new Error(data.error);
     state.scoreSubmitted = true;
     save();
     toast('Score submitted successfully!');
   }catch(e){
     console.error('Score submit error:', e);
-    toast('Score submission failed. Contact organizer.','error');
+    toast('Score submission failed: '+(e.message||'Unknown error'),'error');
   }
 }
 
@@ -904,7 +881,7 @@ function finishQuiz(){
   // Submit to Supabase
   submitScore({totalScore, accuracyPts, timeBonus, correctE, correctM, correctH, totalCorrect, timeUsed});
 
-  const submittedBanner = sb && currentUser ?
+  const submittedBanner = sb && claimedCodeId ?
     '<div class="submitted-banner"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Your score has been submitted to the event organizers.</div>' :
     '<div class="submitted-banner" style="background:rgba(255,145,0,.08);border-color:rgba(255,145,0,.2);color:var(--orange)"><svg viewBox="0 0 24 24" style="fill:var(--orange)"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Offline mode \u2014 score not saved to server.</div>';
 
