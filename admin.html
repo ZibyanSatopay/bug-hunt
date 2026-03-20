@@ -181,26 +181,25 @@ tr.clickable{cursor:pointer}
     <div class="stat-card"><div class="stat-val" id="s-avg">0</div><div class="stat-label">Avg Score</div></div>
     <div class="stat-card"><div class="stat-val" id="s-top">0</div><div class="stat-label">Top Score</div></div>
     <div class="stat-card"><div class="stat-val" id="s-avgtime">0:00</div><div class="stat-label">Avg Time</div></div>
-    <div class="stat-card"><div class="stat-val" id="s-codes">0</div><div class="stat-label">Codes Used</div></div>
+    <div class="stat-card"><div class="stat-val" id="s-perfect">0</div><div class="stat-label">Perfect Scores</div></div>
   </div>
 
   <!-- Tabs -->
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="leaderboard">Leaderboard</button>
-    <button class="admin-tab" data-tab="codes">Event Codes</button>
   </div>
 
   <!-- Leaderboard Tab -->
   <div class="tab-pane active" id="pane-leaderboard">
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search by name, roll number, or language...">
+      <input type="text" id="search-input" placeholder="Search by name, contact, or language...">
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
           <th data-sort="rank"># <span class="sort-arrow">&darr;</span></th>
           <th data-sort="full_name">Name <span class="sort-arrow">&darr;</span></th>
-          <th data-sort="roll_number">Roll# <span class="sort-arrow">&darr;</span></th>
+          <th data-sort="contact">Contact <span class="sort-arrow">&darr;</span></th>
           <th data-sort="language">Lang <span class="sort-arrow">&darr;</span></th>
           <th data-sort="total_score">Score <span class="sort-arrow">&darr;</span></th>
           <th data-sort="accuracy_pts">Accuracy <span class="sort-arrow">&darr;</span></th>
@@ -218,32 +217,6 @@ tr.clickable{cursor:pointer}
     </div>
   </div>
 
-  <!-- Codes Tab -->
-  <div class="tab-pane" id="pane-codes">
-    <div class="code-gen">
-      <h3>Generate New Codes</h3>
-      <div class="code-gen-row">
-        <div class="form-group"><label>Number of Codes</label><input class="form-input" type="number" id="gen-count" value="10" min="1" max="200" style="width:120px"></div>
-        <div class="form-group"><label>Label (optional)</label><input class="form-input" type="text" id="gen-label" placeholder="e.g. Day 1 Batch" style="width:200px"></div>
-        <button class="btn-sm btn-accent" id="gen-btn">Generate</button>
-      </div>
-      <div id="gen-result"></div>
-    </div>
-    <h3 style="font-size:.9rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:16px">All Codes</h3>
-    <div class="search-bar"><input type="text" id="code-search" placeholder="Search codes..."></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>Code</th><th>Label</th><th>Status</th><th>Used By</th><th>Used At</th>
-        </tr></thead>
-        <tbody id="codes-body"></tbody>
-      </table>
-    </div>
-    <div class="empty-state" id="codes-empty" style="display:none">
-      <h3>No codes generated</h3>
-      <p>Use the form above to generate event codes.</p>
-    </div>
-  </div>
 </div>
 
 <!-- Detail Modal -->
@@ -272,7 +245,6 @@ const TOTAL = 30;
 
 let sb, currentUser, userProfile;
 let leaderboardData = [];
-let codesData = [];
 let sortCol = 'rank', sortDir = 'asc';
 
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON); } catch(e) { alert('Supabase init failed'); }
@@ -386,7 +358,6 @@ function showDashboard(){
   $('dashboard').style.display='block';
   $('adm-user-name').textContent=userProfile.full_name||currentUser.email;
   loadLeaderboard();
-  loadCodes();
 }
 
 $('adm-logout').onclick=async()=>{await sb.auth.signOut();location.reload();};
@@ -423,6 +394,7 @@ function updateStats(){
     $('s-top').textContent=d[0]?.total_score||0;
     const avgT=Math.round(d.reduce((s,r)=>s+r.time_used,0)/d.length);
     $('s-avgtime').textContent=fmt(avgT);
+    $('s-perfect').textContent=d.filter(r=>r.total_correct===30).length;
   }
 }
 
@@ -430,7 +402,7 @@ function renderLeaderboard(){
   const filter=$('search-input').value.toLowerCase();
   let rows=leaderboardData;
   if(filter){
-    rows=rows.filter(r=>(r.full_name||'').toLowerCase().includes(filter)||(r.roll_number||'').toLowerCase().includes(filter)||(r.language||'').toLowerCase().includes(filter));
+    rows=rows.filter(r=>(r.full_name||'').toLowerCase().includes(filter)||(r.contact||'').toLowerCase().includes(filter)||(r.language||'').toLowerCase().includes(filter));
   }
 
   // Sort
@@ -453,10 +425,10 @@ function renderLeaderboard(){
   $('lb-body').innerHTML=rows.map((r,i)=>{
     const rank=r.rank||i+1;
     const rankClass=rank<=3?'rank-'+rank:'';
-    return '<tr class="clickable" data-uid="'+r.user_id+'" data-sid="'+r.score_id+'">'+
+    return '<tr class="clickable" data-sid="'+r.score_id+'">'+
       '<td class="rank-cell '+rankClass+'">'+rank+'</td>'+
       '<td>'+(r.full_name||'Unknown')+'</td>'+
-      '<td>'+(r.roll_number||'\u2014')+'</td>'+
+      '<td>'+(r.contact||'\u2014')+'</td>'+
       '<td><span class="lang-badge">'+r.language+'</span></td>'+
       '<td class="score-cell">'+r.total_score+'</td>'+
       '<td>'+r.accuracy_pts+'</td>'+
@@ -484,7 +456,7 @@ function renderLeaderboard(){
 }
 
 $('search-input').oninput=()=>renderLeaderboard();
-$('adm-refresh').onclick=()=>{loadLeaderboard();loadCodes();};
+$('adm-refresh').onclick=()=>{loadLeaderboard();};
 
 /* ═══════════════════════════════════════
    DETAIL MODAL
@@ -529,7 +501,7 @@ function showDetail(scoreId){
       '<div class="detail-item"><div class="di-label">Hard</div><div class="di-val" style="color:var(--red)">'+row.correct_hard+'/10</div></div>'+
       '<div class="detail-item"><div class="di-label">Time Used</div><div class="di-val">'+fmt(row.time_used)+'</div></div>'+
       '<div class="detail-item"><div class="di-label">Language</div><div class="di-val"><span class="lang-badge">'+row.language+'</span></div></div>'+
-      '<div class="detail-item"><div class="di-label">Roll Number</div><div class="di-val">'+(row.roll_number||'\u2014')+'</div></div>'+
+      '<div class="detail-item"><div class="di-label">Contact</div><div class="di-val">'+(row.contact||'\u2014')+'</div></div>'+
       '<div class="detail-item"><div class="di-label">Submitted</div><div class="di-val" style="font-size:.85rem">'+new Date(row.created_at).toLocaleString()+'</div></div>'+
       '<div class="detail-item"><div class="di-label">Total Correct</div><div class="di-val">'+row.total_correct+' / 30</div></div>'+
     '</div>'+
@@ -542,81 +514,13 @@ $('modal-close').onclick=()=>$('detail-modal').classList.remove('active');
 $('detail-modal').onclick=e=>{if(e.target===$('detail-modal'))$('detail-modal').classList.remove('active');};
 
 /* ═══════════════════════════════════════
-   CODES
-   ═══════════════════════════════════════ */
-async function loadCodes(){
-  const {data,error}=await sb.from('login_codes').select('*, profiles:used_by(full_name)').order('created_at',{ascending:false});
-  if(error){console.error(error);return;}
-  codesData=data||[];
-  // Update stats
-  const used=codesData.filter(c=>c.used_by).length;
-  $('s-codes').textContent=used+'/'+codesData.length;
-  renderCodes();
-}
-
-function renderCodes(){
-  const filter=$('code-search').value.toLowerCase();
-  let rows=codesData;
-  if(filter) rows=rows.filter(c=>c.code.toLowerCase().includes(filter)||(c.label||'').toLowerCase().includes(filter));
-
-  if(!rows.length){
-    $('codes-body').innerHTML='';
-    $('codes-empty').style.display='block';
-    return;
-  }
-  $('codes-empty').style.display='none';
-
-  $('codes-body').innerHTML=rows.map(c=>{
-    const used=!!c.used_by;
-    const userName=c.profiles?.full_name||'\u2014';
-    return '<tr>'+
-      '<td><code style="font-weight:700;letter-spacing:2px;color:'+(used?'var(--text-dim)':'var(--accent)')+'">'+c.code+'</code></td>'+
-      '<td>'+(c.label||'\u2014')+'</td>'+
-      '<td><span class="diff-badge '+(used?'hard':'easy')+'">'+(used?'USED':'AVAILABLE')+'</span></td>'+
-      '<td>'+(used?userName:'\u2014')+'</td>'+
-      '<td>'+(c.used_at?new Date(c.used_at).toLocaleString():'\u2014')+'</td>'+
-    '</tr>';
-  }).join('');
-}
-
-$('code-search').oninput=()=>renderCodes();
-
-$('gen-btn').onclick=async()=>{
-  const count=parseInt($('gen-count').value)||10;
-  const label=$('gen-label').value.trim();
-  $('gen-btn').disabled=true;$('gen-btn').innerHTML='<span class="spinner"></span>';
-
-  try{
-    // Generate codes client-side and insert
-    const codes=[];
-    for(let i=0;i<count;i++){
-      const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-      let code='';
-      for(let j=0;j<8;j++) code+=chars[Math.floor(Math.random()*chars.length)];
-      codes.push({code, label:label||'Generated'});
-    }
-    const {error}=await sb.from('login_codes').insert(codes);
-    if(error) throw error;
-
-    $('gen-result').innerHTML='<div style="color:var(--green);font-size:.85rem;margin-bottom:8px">Generated '+count+' codes!</div>'+
-      '<div class="codes-list">'+codes.map(c=>'<div class="code-chip"><span class="code-status available"></span>'+c.code+'</div>').join('')+'</div>';
-
-    loadCodes();
-  }catch(e){
-    $('gen-result').innerHTML='<div style="color:var(--red);font-size:.85rem">'+e.message+'</div>';
-  }finally{
-    $('gen-btn').disabled=false;$('gen-btn').textContent='Generate';
-  }
-};
-
-/* ═══════════════════════════════════════
    EXPORT CSV
    ═══════════════════════════════════════ */
 $('adm-export').onclick=()=>{
   if(!leaderboardData.length) return;
-  const headers=['Rank','Name','Roll Number','Language','Total Score','Accuracy','Speed Bonus','Easy','Medium','Hard','Total Correct','Time Used (s)','Submitted'];
+  const headers=['Rank','Name','Contact','Language','Total Score','Accuracy','Speed Bonus','Easy','Medium','Hard','Total Correct','Time Used (s)','Submitted'];
   const rows=leaderboardData.map(r=>[
-    r.rank, r.full_name, r.roll_number||'', r.language, r.total_score, r.accuracy_pts, r.time_bonus,
+    r.rank, r.full_name, r.contact||'', r.language, r.total_score, r.accuracy_pts, r.time_bonus,
     r.correct_easy, r.correct_medium, r.correct_hard, r.total_correct, r.time_used,
     new Date(r.created_at).toLocaleString()
   ]);
