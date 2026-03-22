@@ -171,6 +171,7 @@ tr.clickable{cursor:pointer}
       <span class="admin-user" id="adm-user-name"></span>
       <button class="btn-sm btn-ghost" id="adm-refresh" title="Refresh data">Refresh</button>
       <button class="btn-sm btn-ghost" id="adm-export">Export CSV</button>
+      <button class="btn-sm btn-danger" id="adm-clear" title="Delete all submissions">🗑 Clear All</button>
       <button class="btn-sm btn-danger" id="adm-logout">Sign Out</button>
     </div>
   </div>
@@ -457,6 +458,19 @@ function renderLeaderboard(){
 
 $('search-input').oninput=()=>renderLeaderboard();
 $('adm-refresh').onclick=()=>{loadLeaderboard();};
+
+$('adm-clear').onclick=async()=>{
+  const count=leaderboardData.length;
+  if(!count){alert('No submissions to clear.');return;}
+  if(!confirm(`⚠️ DELETE all ${count} submissions?\n\nThis cannot be undone!`)) return;
+  if(!confirm('Are you REALLY sure? Type OK to confirm.')) return;
+  try{
+    const{error}=await sb.rpc('clear_all_submissions');
+    if(error) throw error;
+    alert('✅ All submissions cleared.');
+    loadLeaderboard();
+  }catch(e){alert('Error: '+e.message);}
+};
 
 /* ═══════════════════════════════════════
    DETAIL MODAL
